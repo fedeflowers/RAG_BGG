@@ -7,3 +7,5 @@ venv/
 # Ignore specific files
 prototype_HF.ipynb
 prototype_ollama.ipynb
+Appunti.txt
+Ideas.txt

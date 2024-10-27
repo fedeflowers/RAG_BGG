@@ -17,7 +17,7 @@ if __name__ == '__main__':
         get_game_details,
         connect_Qdrant
     )
-    MAX_TOKENS = 400
+    MAX_TOKENS = 600
     COLLECTION_NAME = "openai"
     if COLLECTION_NAME == "transformer_sentece_splitter_2":
         EMBEDDING_MODEL_NAME = "thenlper/gte-small"

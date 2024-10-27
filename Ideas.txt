@@ -14,3 +14,9 @@ https://github.com/FullStackRetrieval-com/RetrievalTutorials/blob/main/tutorials
 
 
 https://www.rungalileo.io/blog/mastering-rag-advanced-chunking-techniques-for-llm-applications
+
+
+
+1. ADAPT the output number of tokens, if the answer is too long reduce it, if the question requires a more in-depth answer, update it and create a longer answer.
+2. make the app better, easier to switch between games, reset chat, or open new chat, every chat with a specific game?
+3. make the loading of possible games to choose from directly from the metadata of vector DB Qdrant.
