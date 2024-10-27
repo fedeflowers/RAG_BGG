@@ -3,9 +3,8 @@
 detectron2/
 keys/
 venv/
+txt_utils/
 
 # Ignore specific files
 prototype_HF.ipynb
 prototype_ollama.ipynb
-Appunti.txt
-Ideas.txt
