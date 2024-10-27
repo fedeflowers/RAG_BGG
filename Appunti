@@ -1,0 +1,9 @@
+.\venv\Scripts\activate
+python bot/ingestion.py
+streamlit run app.py
+
+where model is saved:
+C:\Users\fiori\.cache\huggingface\hub
+
+
+C:\Program Files\Tesseract-OCR

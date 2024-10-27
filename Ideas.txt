@@ -1,0 +1,16 @@
+Fare App per portarlo sempre con se, se andare public, fare invece di scarapign di rulebooks, far in modo che gli utenti aggiungano nuovi rulebooks se, però problema con foto… meglio scanner...
+
+
+devo fare l'upload dei rulebooks su Qdrant, aggiungere un singolo rulebook, ecc... cmq ho solo 1 gb a disposizione... dayum
+
+devo fare il retrieval da Qdarant cloud 
+
+devo creare il chatbot e fare interfaccia con streamlit,
+
+nei metadati ci sta metter eil nome del gioco nel doc chunk. così poi quando si va retrieval si chiede di inserire il nome del gioco e già ti evita di recuperare tutti docs non pertinenti, poi su quelli ti fai la search delle regole corrette
+
+
+https://github.com/FullStackRetrieval-com/RetrievalTutorials/blob/main/tutorials/LevelsOfTextSplitting/5_Levels_Of_Text_Splitting.ipynb
+
+
+https://www.rungalileo.io/blog/mastering-rag-advanced-chunking-techniques-for-llm-applications

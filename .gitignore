@@ -1,0 +1,9 @@
+# Ignore specific directories
+.streamlit/
+detectron2/
+keys/
+venv/
+
+# Ignore specific files
+prototype_HF.ipynb
+prototype_ollama.ipynb
