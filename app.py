@@ -17,7 +17,9 @@ if __name__ == '__main__':
         get_game_details,
         connect_Qdrant
     )
-    MAX_TOKENS = 600
+    MAX_TOKENS = 1200
+    TEMPERATURE=0.2
+    NUM_DOCS_RETRIEVED = 10
     COLLECTION_NAME = "openai"
     if COLLECTION_NAME == "transformer_sentece_splitter_2":
         EMBEDDING_MODEL_NAME = "thenlper/gte-small"
@@ -46,7 +48,7 @@ if __name__ == '__main__':
 
         # Display a loading message
         placeholder = st.empty()
-        placeholder.write("Initializing app... please wait")
+        placeholder.write("Initializing app... Please wait")
         
         # Initialize embedding model
         if COLLECTION_NAME == "openai":
@@ -75,14 +77,14 @@ if __name__ == '__main__':
         )
 
         # Initialize the LLM
-        st.session_state.llm = ChatOpenAI(openai_api_key=openai.api_key,model=st.session_state['openai_model'], temperature=1, max_tokens=MAX_TOKENS)
+        st.session_state.llm = ChatOpenAI(openai_api_key=openai.api_key,model=st.session_state['openai_model'], temperature=TEMPERATURE, max_tokens=MAX_TOKENS)
 
         # Set initialization flag to True
         st.session_state.initialized = True
         placeholder.empty()
         st.success("App ready!")
 
-    # Game options for dropdown
+    # Game options for dropdown -> GENERATE THIS DINAMICALLY!
     game_options = ["Unlock Secret Adventures", "The Mind Extreme", "SpellBook", "Chimera Station"]
     selected_game = st.selectbox("Select a game:", game_options, index=game_options.index(st.session_state.selected_game))
 
@@ -131,7 +133,7 @@ if __name__ == '__main__':
 
         ---
         **Current Situation**:  
-        This is the specific context or scenario the player is in, which might affect your answer:  
+        This is the specific context that can help you answer the question, Usually it should give you the game's rules, mechanics, and scenarios:  
         _{context}_
 
         ---
@@ -142,7 +144,7 @@ if __name__ == '__main__':
         **Boardy's Response**:  
         Provide your answer in an instructive and conversational tone as if you’re explaining the rules and strategies at the table. Include relevant examples, clarify mechanics:
 
-        - **Game Rule Explanation**: Offer precise details on the relevant game rules, mechanics, or actions related to the question.
+        - **Game Rule Explanation**: Offer precise details on the relevant game rules present in player's question, mechanics, or actions related to the question.
         - Boardy's Response must me MAXIMUM {MAX_TOKENS} words long, so adapt the response accodingly.
         """
 
@@ -158,7 +160,7 @@ if __name__ == '__main__':
         metadata_filter = {'key': 'metadata.game_name', 'value': st.session_state.selected_game}
 
         # Retrieve query and game details
-        context, game_id = retrieve_query(query = prompt, embedding_model=st.session_state.embedding_model, qdrant_client=st.session_state.qdrant_client, vector_store=st.session_state.vector_store, metadata_filter=metadata_filter, k=5)
+        context, game_id = retrieve_query(query = prompt, embedding_model=st.session_state.embedding_model, qdrant_client=st.session_state.qdrant_client, vector_store=st.session_state.vector_store, metadata_filter=metadata_filter, k=NUM_DOCS_RETRIEVED)
         name, description = get_game_details(game_id)
 
         # Call the async function to stream the response
