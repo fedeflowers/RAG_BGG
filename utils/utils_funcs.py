@@ -124,8 +124,15 @@ def retrieve_query(query,  embedding_model, qdrant_client, vector_store, metadat
     # Extract content from the result
     game_id = result[-1].metadata["game_id"]
     context = [doc.page_content for doc in result]
+
+    image_metadata = {}
+    for doc in result:
+        for key, value in doc.metadata.items():
+            if key.startswith("image"):
+                image_metadata[key] = value
     
-    return context, game_id
+    
+    return context, game_id, image_metadata
 
 
 

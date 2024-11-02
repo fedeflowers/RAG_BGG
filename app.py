@@ -5,7 +5,7 @@ if __name__ == '__main__':
     import pandas as pd
     from langchain_huggingface import HuggingFaceEmbeddings
     from langchain_qdrant import QdrantVectorStore
-    from langchain_ollama.llms import OllamaLLM
+    # from langchain_ollama.llms import OllamaLLM
     from langchain.prompts import PromptTemplate
     from langchain_core.output_parsers import StrOutputParser
     import asyncio
@@ -17,10 +17,15 @@ if __name__ == '__main__':
         get_game_details,
         connect_Qdrant
     )
-    MAX_TOKENS = 1200
+    import base64
+    import re
+    from io import BytesIO
+    from PIL import Image
+
+    # MAX_TOKENS = 1200
     TEMPERATURE=0.2
     NUM_DOCS_RETRIEVED = 10
-    COLLECTION_NAME = "openai"
+    COLLECTION_NAME = "openai_txt"
     if COLLECTION_NAME == "transformer_sentece_splitter_2":
         EMBEDDING_MODEL_NAME = "thenlper/gte-small"
     elif COLLECTION_NAME == "openai":
@@ -51,18 +56,17 @@ if __name__ == '__main__':
         placeholder.write("Initializing app... Please wait")
         
         # Initialize embedding model
-        if COLLECTION_NAME == "openai":
-            st.session_state.embedding_model = OpenAIEmbeddings(
-                openai_api_key=openai.api_key,
-                model="text-embedding-ada-002",  # Specify the desired OpenAI embedding model
-            )
-        else:
-            st.session_state.embedding_model = HuggingFaceEmbeddings(
-                model_name=EMBEDDING_MODEL_NAME,
-                multi_process=True,
-                model_kwargs={"device": "cuda"},
-                encode_kwargs={"normalize_embeddings": True},
-            )
+        st.session_state.embedding_model = OpenAIEmbeddings(
+            openai_api_key=openai.api_key,
+            model="text-embedding-ada-002",  # Specify the desired OpenAI embedding model
+        )
+        # else:
+        #     st.session_state.embedding_model = HuggingFaceEmbeddings(
+        #         model_name=EMBEDDING_MODEL_NAME,
+        #         multi_process=True,
+        #         model_kwargs={"device": "cuda"},
+        #         encode_kwargs={"normalize_embeddings": True},
+        #     )
         # text-embedding-ada-002
 
         # Connect to Qdrant
@@ -77,14 +81,14 @@ if __name__ == '__main__':
         )
 
         # Initialize the LLM
-        st.session_state.llm = ChatOpenAI(openai_api_key=openai.api_key,model=st.session_state['openai_model'], temperature=TEMPERATURE, max_tokens=MAX_TOKENS)
+        st.session_state.llm = ChatOpenAI(openai_api_key=openai.api_key,model=st.session_state['openai_model'], temperature=TEMPERATURE)
 
         # Set initialization flag to True
         st.session_state.initialized = True
         placeholder.empty()
         st.success("App ready!")
 
-    # Game options for dropdown -> GENERATE THIS DINAMICALLY!
+    # Game options for dropdown -> GENERATE THIS DINAMICALLY! (find another way to select boardgame)
     game_options = ["Unlock Secret Adventures", "The Mind Extreme", "SpellBook", "Chimera Station"]
     selected_game = st.selectbox("Select a game:", game_options, index=game_options.index(st.session_state.selected_game))
 
@@ -98,16 +102,16 @@ if __name__ == '__main__':
 
     # Capture the user input for the question
 
-    def stream_response(prompt, context, description, name, llm, parser):
+    def stream_response(prompt, context, description, name, llm, parser, template, input_variables):
         message_placeholder = st.empty()
         full_response = ""
 
         # Create a Langchain chain
         try:
-            chain = PromptTemplate(template=template_string, input_variables=["context", "question", "description", "name", "MAX_TOKENS"]) | llm | parser
+            chain = PromptTemplate(template=template, input_variables=input_variables) | llm | parser
 
             # Stream the model's output chunk by chunk
-            for chunk in chain.stream({"context": context, "question": prompt, "description": description, "name": name, "MAX_TOKENS": MAX_TOKENS}):
+            for chunk in chain.stream({"context": context, "question": prompt, "description": description, "name": name}):
                 full_response += chunk
                 message_placeholder.markdown(full_response)
 
@@ -118,6 +122,20 @@ if __name__ == '__main__':
         if "messages" not in st.session_state:
             st.session_state.messages = []
         st.session_state.messages.append({"role": "assistant", "content": full_response, name:"Boardy"})
+
+    def batch_response(prompt, context, description, name, llm, parser, template, input_variables):
+        # message_placeholder = st.empty()
+        full_response = ""
+        # Create a Langchain chain
+        try:
+            chain = PromptTemplate(template=template, input_variables=input_variables) | llm | parser
+            # message_placeholder.markdown(full_response)
+            # Stream the model's output chunk by chunk
+            full_response = chain.invoke({"context": context, "question": prompt, "description": description, "name": name})
+        except Exception as e:
+            st.error(f"An error occurred: {str(e)}")
+
+        return full_response
 
     template_string = """
         System: You are Boardy, an expert assistant specializing in board games. Your role is to provide authoritative, precise, and practical guidance on game rules, mechanics, strategies, and scenarios. 
@@ -145,8 +163,16 @@ if __name__ == '__main__':
         Provide your answer in an instructive and conversational tone as if you’re explaining the rules and strategies at the table. Include relevant examples, clarify mechanics:
 
         - **Game Rule Explanation**: Offer precise details on the relevant game rules present in player's question, mechanics, or actions related to the question.
-        - Boardy's Response must me MAXIMUM {MAX_TOKENS} words long, so adapt the response accodingly.
         """
+    
+    template_string_final_substitution = """system: Given the context: {context}, and the following list of image IDs, that also describe shortly the image itself: {list_images}, enhance the context by incorporating relevant image IDs as visual recommendations for the final user. 
+        Ensure that the original content remains unchanged, except for the addition of image references. Aim for a natural integration of the images into the text.
+        """
+
+    # FINAL_PROMPT = PromptTemplate(
+    #     template=template_string_final_substitution,
+    #     input_variables=["context", "list_images"]  # Use a list of strings
+    #     )
 
     prompt = st.chat_input("How can I play this game?")
     if prompt:
@@ -160,31 +186,59 @@ if __name__ == '__main__':
         metadata_filter = {'key': 'metadata.game_name', 'value': st.session_state.selected_game}
 
         # Retrieve query and game details
-        context, game_id = retrieve_query(query = prompt, embedding_model=st.session_state.embedding_model, qdrant_client=st.session_state.qdrant_client, vector_store=st.session_state.vector_store, metadata_filter=metadata_filter, k=NUM_DOCS_RETRIEVED)
+        context, game_id, image_metadata = retrieve_query(query = prompt, embedding_model=st.session_state.embedding_model, qdrant_client=st.session_state.qdrant_client, vector_store=st.session_state.vector_store, metadata_filter=metadata_filter, k=NUM_DOCS_RETRIEVED)
         name, description = get_game_details(game_id)
 
-        # Call the async function to stream the response
-        stream_response(prompt, context, description, name, st.session_state.llm, st.session_state.parser)
+        # # # Call the async function to stream the response
+        intermediate_response = batch_response(prompt, context, description, name, st.session_state.llm, st.session_state.parser, template_string, ["context", "question", "description", "name"])
+        input_variables = ["context", "list_images"]
 
-        # # Create a response placeholder in the chat interface
-        # with st.chat_message(name="Boardy", avatar='😊'):
-        #     message_placeholder = st.empty()
-        #     full_response = ""  # Variable to accumulate the chunks of the response
+        # Second part of the model, actual streaming with images
+        buffer = ""
+        full_response = ""
+        message_placeholder = st.empty()  # Placeholder for displaying the response
+        try:
+            chain = PromptTemplate(template=template_string_final_substitution, input_variables=input_variables) | st.session_state.llm | st.session_state.parser
 
-        #     for response in openai.ChatCompletion.create(
-        #         model=st.session_state['openai_model'],
-        #         messages=[{"role": "user", "content": context}],
-        #         temperature=0.7,
-        #         max_tokens=1000,
-        #         messages=[{"role": m["role"], "content": m["content"]} for m in st.session_state.messages],
-        #         stream=True
-        #     )
-        #     chain = PromptTemplate(template=template_string, input_variables=["context", "question"]) | llm | parser
+            # Initialize an empty buffer and a full response
+            buffer = ""
+            full_response = ""
 
-        #     # Stream the model's output chunk by chunk
-        #     for chunk in chain.stream({"context": context, "question": prompt, "description": description, "name": name}):
-        #         full_response += chunk  # Append each chunk to the full response
-        #         message_placeholder.markdown(full_response)  # Update the placeholder with the partial response
+            # Stream the model's output chunk by chunk
+            for chunk in chain.stream({"context": intermediate_response, "list_images": list(image_metadata.keys())}):
+                buffer += chunk  # Accumulate chunk into the buffer
 
-        #     # Add the assistant's complete response to the chat history
-        #     st.session_state.messages.append({"role": "assistant", "content": full_response})
+                # Check if buffer contains any complete image placeholders
+                while re.search(r"!\[.*?\]\(.*?\)", buffer):
+                    match = re.search(r"!\[.*?\]\((.*?)\)", buffer)  # Look for the next placeholder
+                    placeholder_key = match.group(1)
+
+                    if placeholder_key in image_metadata:
+                        split_text = buffer.split(f"![{placeholder_key}]({placeholder_key})", 1)
+                        # Display only the new text since last update
+                        new_text = split_text[0]
+                        if new_text:
+                            st.markdown(new_text)
+                            full_response += new_text
+
+                        # Decode and display the image
+                        image_data = base64.b64decode(image_metadata[placeholder_key])
+                        image = Image.open(BytesIO(image_data))
+                        st.image(image)  # Display the decoded image
+
+                        buffer = split_text[1]  # Update buffer with remaining text
+                    else:
+                        break  # Stop if placeholder key not found in metadata
+
+        except Exception as e:
+            st.error(f"An error occurred: {str(e)}")
+
+        # Add the assistant's complete response to the chat history
+        if "messages" not in st.session_state:
+            st.session_state.messages = []
+        st.session_state.messages.append({"role": "assistant", "content": full_response, "name": "Boardy"})
+
+
+
+
+

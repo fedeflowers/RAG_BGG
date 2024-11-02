@@ -2,7 +2,7 @@
 .streamlit/
 detectron2/
 keys/
-venv/
+.venv/
 ignore/
 
 # Ignore specific files
