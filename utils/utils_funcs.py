@@ -81,7 +81,59 @@ def connect_Qdrant(URL, API_KEY):
 
 
 
-def retrieve_query(query,  embedding_model, qdrant_client, vector_store, metadata_filter=None, k=1,):
+# def retrieve_query(query,  embedding_model, qdrant_client, vector_store, metadata_filter=None, k=1,):
+#     '''
+#     Retrieve query from Qdrant with metadata filtering. 
+#     k: Number of documents to retrieve.
+#     metadata_filter: Dictionary specifying filter conditions (e.g., { "key": "game_name", "value": "Unlock" })
+#     '''
+    
+#     if metadata_filter:
+#         # Create a filter based on the provided metadata
+#         filter_conditions = models.Filter(
+#             must=[
+#                 models.FieldCondition(
+#                     key=metadata_filter["key"],  # Metadata key, e.g., 'game_name'
+#                     match=models.MatchValue(
+#                         value=metadata_filter["value"],  # Metadata value, e.g., 'Unlock'
+#                     ),
+#                 ),
+#             ]
+#         )
+        
+#         # Debug: Print filter conditions to verify
+#         # print(f"Filter conditions: {filter_conditions}")
+
+#         # Perform similarity search with metadata filtering
+#         result = vector_store.similarity_search(
+#             query=query,
+#             k=k,
+#             filter=filter_conditions  # Applying the metadata filter
+#         )
+#     else:
+#         # Perform regular similarity search without filtering
+#         result = vector_store.similarity_search(
+#             query=query,
+#             k=k,
+#         )
+    
+#     # Debug: Print retrieved results
+#     # for doc in result:
+#         # print(f"Retrieved result: {doc}")
+    
+#     # Extract content from the result
+#     game_id = result[-1].metadata["game_id"]
+#     context = [doc.page_content for doc in result]
+
+#     image_metadata = {}
+#     for doc in result:
+#         for key, value in doc.metadata.items():
+#             if key.startswith("image"):
+#                 image_metadata[key] = value
+    
+    
+#     return context, game_id, image_metadata
+def retrieve_query(query, k, embedding_model, qdrant_client, vector_store, metadata_filter, similarity_threshold):
     '''
     Retrieve query from Qdrant with metadata filtering. 
     k: Number of documents to retrieve.
@@ -105,18 +157,31 @@ def retrieve_query(query,  embedding_model, qdrant_client, vector_store, metadat
         # print(f"Filter conditions: {filter_conditions}")
 
         # Perform similarity search with metadata filtering
-        result = vector_store.similarity_search(
-            query=query,
-            k=k,
-            filter=filter_conditions  # Applying the metadata filter
+        # result = vector_store.similarity_search(
+        #     query=query,
+        #     k=k,
+        #     filter=filter_conditions  # Applying the metadata filter
+        # )
+        result = vector_store.search(
+            query=query,  # Replace with your query vector
+            limit=k,
+            filter=filter_conditions,  # Metadata filter
+            score_threshold=similarity_threshold,  # Set your threshold here, e.g., 0.75
+            search_type="similarity_score_threshold"
         )
     else:
         # Perform regular similarity search without filtering
-        result = vector_store.similarity_search(
-            query=query,
-            k=k,
+        # result = vector_store.similarity_search(
+        #     query=query,
+        #     k=k,
+        # )
+        result = vector_store.search(
+            query=query,  # Replace with your query vector
+            limit=k,
+            filter=filter_conditions,  # Metadata filter
+            score_threshold=similarity_threshold,  # Set your threshold here, e.g., 0.75
+            search_type="similarity_score_threshold"
         )
-    
     # Debug: Print retrieved results
     # for doc in result:
         # print(f"Retrieved result: {doc}")
@@ -124,15 +189,16 @@ def retrieve_query(query,  embedding_model, qdrant_client, vector_store, metadat
     # Extract content from the result
     game_id = result[-1].metadata["game_id"]
     context = [doc.page_content for doc in result]
-
     image_metadata = {}
+
+    # Loop through metadata and find elements that start with "image"
     for doc in result:
         for key, value in doc.metadata.items():
             if key.startswith("image"):
                 image_metadata[key] = value
     
-    
     return context, game_id, image_metadata
+
 
 
 

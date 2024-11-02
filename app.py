@@ -25,6 +25,9 @@ if __name__ == '__main__':
     # MAX_TOKENS = 1200
     TEMPERATURE=0.2
     NUM_DOCS_RETRIEVED = 10
+    SIMILARITY_THRESHOLD = 0.95
+    DECAY = 0.01
+    MIN_DOCUMENTS = 3
     COLLECTION_NAME = "openai_txt"
     if COLLECTION_NAME == "transformer_sentece_splitter_2":
         EMBEDDING_MODEL_NAME = "thenlper/gte-small"
@@ -89,7 +92,7 @@ if __name__ == '__main__':
         st.success("App ready!")
 
     # Game options for dropdown -> GENERATE THIS DINAMICALLY! (find another way to select boardgame)
-    game_options = ["Unlock Secret Adventures", "The Mind Extreme", "SpellBook", "Chimera Station"]
+    game_options = ["Unlock Secret Adventures", "The Mind Extreme", "Spellbook", "Chimera Station"]
     selected_game = st.selectbox("Select a game:", game_options, index=game_options.index(st.session_state.selected_game))
 
     # Store the selected game in session state
@@ -151,7 +154,7 @@ if __name__ == '__main__':
 
         ---
         **Current Situation**:  
-        This is the specific context that can help you answer the question, Usually it should give you the game's rules, mechanics, and scenarios:  
+        This is the specific context that can help you answer the question, Usually it should give you the game's rules, mechanics, and scenarios only if presented in context:  
         _{context}_
 
         ---
@@ -160,21 +163,31 @@ if __name__ == '__main__':
 
         ---
         **Boardy's Response**:  
-        Provide your answer in an instructive and conversational tone as if you’re explaining the rules and strategies at the table. Include relevant examples, clarify mechanics:
+        Provide your answer in an instructive and conversational tone as if you’re explaining the rules at the table. clarify mechanics, provide examples only if retrieved from the context:
 
         - **Game Rule Explanation**: Offer precise details on the relevant game rules present in player's question, mechanics, or actions related to the question.
         """
-    
-    template_string_final_substitution = """system: Given the context: {context}, and the following list of image IDs, that also describe shortly the image itself: {list_images}, enhance the context by incorporating relevant image IDs as visual recommendations for the final user. 
-        Ensure that the original content remains unchanged, except for the addition of image references. Aim for a natural integration of the images into the text.
-        """
+    #magari cambiare sto prompt con un altro che oltre ad inserire le immagini le riesca anche ad allinear con il testo un attimino meglio
+    # template_string_final_substitution = """system: Given the context: {context}, and the following list of image IDs, that also describe shortly the image itself: {list_images}, enhance the context by incorporating relevant image IDs as visual recommendations for the final user. 
+    # Ensure that the original content remains unchanged, except for the addition of image references. Aim for a natural integration of the images into the text.
+    # """
+    template_string_final_substitution = """system: Given the context: {context}, and the following list of image IDs, along with brief descriptions of each image: {list_images}, enhance the context by naturally incorporating relevant image IDs as visual recommendations for the user. Ensure that the original content remains unchanged except for the addition of image references. 
+    Use `{list_images}` to refer to images where they are specifically relevant, integrating them into the text without separating by commas or any punctuation. To reference an image, use the format `![<list_images_key>](list_images_key)` to embed it directly. Aim to place images at the end of sentences or paragraphs, avoiding unnecessary references, and exclude a final period if the sentence ends with an image. Only add images that enhance understanding and align perfectly with the context.
+    If you are terminating the paragraph or sentence with an image, do not add a final period like DO this way instead `bla bla bal <image>`.
+    ***VERY IMPORTANT*** DO NOT ADD IMAGES THAT DO NOT REFER TO {context}.
+    ***VERY IMPORTANT*** DO NOT USE ALL IMAGES. ONLY ADD IMAGES THAT ARE RELEVANT.
+    """
 
-    # FINAL_PROMPT = PromptTemplate(
-    #     template=template_string_final_substitution,
-    #     input_variables=["context", "list_images"]  # Use a list of strings
-    #     )
 
-    prompt = st.chat_input("How can I play this game?")
+
+    # template_string_final_substitution = """system: Given the context: {context}, and the following list of image IDs, that also describe shortly the image itself: {list_images}, enhance the context by incorporating relevant image IDs as visual recommendations for the final user. 
+    # Ensure that the original contet remains unchanged, except for the addition of image references. Aim for a natural integration of the images into the text.
+    # try to seamlessly incorporate the images into the context, do not separate images by commas, if you end a paragraph or sentece with an image to NOT add the final point,
+    # for example, if you end a sentece "bla bla bal <image>" then do not add the '.' at the end. They are preferred at the end of a sentence or of a paragraph. Do not add not needed images,
+    # Add only images that enhance the understanding of the context and that the {list_images} values reflect that context perfectly.
+    # """
+
+    prompt = st.chat_input(" ")
     if prompt:
         # Display user message in chat container
         with st.chat_message("user"):
@@ -184,9 +197,20 @@ if __name__ == '__main__':
 
         # Dynamically set metadata filter based on selected game
         metadata_filter = {'key': 'metadata.game_name', 'value': st.session_state.selected_game}
-
-        # Retrieve query and game details
-        context, game_id, image_metadata = retrieve_query(query = prompt, embedding_model=st.session_state.embedding_model, qdrant_client=st.session_state.qdrant_client, vector_store=st.session_state.vector_store, metadata_filter=metadata_filter, k=NUM_DOCS_RETRIEVED)
+        context = []
+        while SIMILARITY_THRESHOLD > DECAY and len(context) < MIN_DOCUMENTS:
+            try:
+                context, game_id, image_metadata = retrieve_query(prompt, NUM_DOCS_RETRIEVED, st.session_state.embedding_model,
+                                                                st.session_state.qdrant_client, st.session_state.vector_store,
+                                                                metadata_filter = metadata_filter,
+                                                                similarity_threshold=SIMILARITY_THRESHOLD)
+                SIMILARITY_THRESHOLD -= DECAY
+                if len(context) >= MIN_DOCUMENTS:
+                    break
+            except Exception as e:
+                print(f"Error: {e}")
+                SIMILARITY_THRESHOLD -= DECAY
+                print("setting similarity threshold to", SIMILARITY_THRESHOLD)
         name, description = get_game_details(game_id)
 
         # # # Call the async function to stream the response
