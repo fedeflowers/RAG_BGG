@@ -25,13 +25,13 @@ if __name__ == '__main__':
     # MAX_TOKENS = 1200
     TEMPERATURE=0.2
     NUM_DOCS_RETRIEVED = 10
-    SIMILARITY_THRESHOLD = 0.95
-    DECAY = 0.01
-    MIN_DOCUMENTS = 3
-    COLLECTION_NAME = "openai_txt"
+    SIMILARITY_THRESHOLD = 0.9
+    DECAY = 0.05
+    MIN_DOCUMENTS = 15
+    COLLECTION_NAME = "automatic_ingestion"
     if COLLECTION_NAME == "transformer_sentece_splitter_2":
         EMBEDDING_MODEL_NAME = "thenlper/gte-small"
-    elif COLLECTION_NAME == "openai":
+    elif COLLECTION_NAME == "automatic_ingestion":
         EMBEDDING_MODEL_NAME = "text-embedding-ada-002"
 
     # Initialize session state keys for models and game options
@@ -92,7 +92,7 @@ if __name__ == '__main__':
         st.success("App ready!")
 
     # Game options for dropdown -> GENERATE THIS DINAMICALLY! (find another way to select boardgame)
-    game_options = ["Unlock Secret Adventures", "The Mind Extreme", "Spellbook", "Chimera Station"]
+    game_options = ["Unlock Secret Adventures", "The Mind Extreme", "SpellBook", "Chimera Station"]
     selected_game = st.selectbox("Select a game:", game_options, index=game_options.index(st.session_state.selected_game))
 
     # Store the selected game in session state
@@ -171,7 +171,9 @@ if __name__ == '__main__':
     # template_string_final_substitution = """system: Given the context: {context}, and the following list of image IDs, that also describe shortly the image itself: {list_images}, enhance the context by incorporating relevant image IDs as visual recommendations for the final user. 
     # Ensure that the original content remains unchanged, except for the addition of image references. Aim for a natural integration of the images into the text.
     # """
-    template_string_final_substitution = """system: Given the context: {context}, and the following list of image IDs, along with brief descriptions of each image: {list_images}, enhance the context by naturally incorporating relevant image IDs as visual recommendations for the user. Ensure that the original content remains unchanged except for the addition of image references. 
+    template_string_final_substitution = """system: Given the context: {context}, and the following list of image IDs,
+    along with brief descriptions of each image: {list_images}, enhance the context by naturally incorporating relevant image IDs
+    as visual recommendations for the user, the added images should be explained by the context, to not add images that are not mentioned in the context. Ensure that the original content remains unchanged except for the addition of image references. 
     Use `{list_images}` to refer to images where they are specifically relevant, integrating them into the text without separating by commas or any punctuation. To reference an image, use the format `![<list_images_key>](list_images_key)` to embed it directly. Aim to place images at the end of sentences or paragraphs, avoiding unnecessary references, and exclude a final period if the sentence ends with an image. Only add images that enhance understanding and align perfectly with the context.
     If you are terminating the paragraph or sentence with an image, do not add a final period like DO this way instead `bla bla bal <image>`.
     ***VERY IMPORTANT*** DO NOT ADD IMAGES THAT DO NOT REFER TO {context}.

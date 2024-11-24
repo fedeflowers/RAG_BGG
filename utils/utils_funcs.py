@@ -189,13 +189,13 @@ def retrieve_query(query, k, embedding_model, qdrant_client, vector_store, metad
     # Extract content from the result
     game_id = result[-1].metadata["game_id"]
     context = [doc.page_content for doc in result]
-    image_metadata = {}
+    image_metadata = result[-1].metadata['images']
 
     # Loop through metadata and find elements that start with "image"
-    for doc in result:
-        for key, value in doc.metadata.items():
-            if key.startswith("image"):
-                image_metadata[key] = value
+    # for doc in result:
+    #     for key, value in doc.metadata.items():
+    #         if key.startswith("image"):
+    #             image_metadata[key] = value
     
     return context, game_id, image_metadata
 
