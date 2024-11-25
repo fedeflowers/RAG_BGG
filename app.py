@@ -171,11 +171,12 @@ if __name__ == '__main__':
     # template_string_final_substitution = """system: Given the context: {context}, and the following list of image IDs, that also describe shortly the image itself: {list_images}, enhance the context by incorporating relevant image IDs as visual recommendations for the final user. 
     # Ensure that the original content remains unchanged, except for the addition of image references. Aim for a natural integration of the images into the text.
     # """
-    template_string_final_substitution = """system: Given the context: {context}, and the following list of image IDs,
-    along with brief descriptions of each image: {list_images}, enhance the context by naturally incorporating relevant image IDs
+    template_string_final_substitution = """system: Given the context: {context}, and the following list of image IDs {list_images},
+    Enhance the context by naturally incorporating relevant image IDs
     as visual recommendations for the user, the added images should be explained by the context, to not add images that are not mentioned in the context. Ensure that the original content remains unchanged except for the addition of image references. 
-    Use `{list_images}` to refer to images where they are specifically relevant, integrating them into the text without separating by commas or any punctuation. To reference an image, use the format `![<list_images_key>](list_images_key)` to embed it directly. Aim to place images at the end of sentences or paragraphs, avoiding unnecessary references, and exclude a final period if the sentence ends with an image. Only add images that enhance understanding and align perfectly with the context.
-    If you are terminating the paragraph or sentence with an image, do not add a final period like DO this way instead `bla bla bal <image>`.
+    Use `{list_images}` to refer to images where they are specifically relevant, integrating them into the text without separating by commas or any punctuation. To reference an image, use the format `![<list_images_key>](list_images_key)` to embed it directly.
+    Avoid unnecessary references, and exclude a final period if the sentence ends with an image. Only add images that enhance understanding and align perfectly with the context.
+    If you are terminating the paragraph or sentence with an image, do not add a final period like DO this way instead `bla bla bal <image>`
     ***VERY IMPORTANT*** DO NOT ADD IMAGES THAT DO NOT REFER TO {context}.
     ***VERY IMPORTANT*** DO NOT USE ALL IMAGES. ONLY ADD IMAGES THAT ARE RELEVANT.
     """
