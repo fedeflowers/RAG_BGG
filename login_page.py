@@ -46,7 +46,7 @@ def login_page():
         if success:
             st.session_state.authenticated = True
             st.session_state.user = user
-            st.session_state.page = 'refresh'
+            st.rerun()
         else:
             st.error("Invalid username or password.")
 

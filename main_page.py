@@ -124,7 +124,11 @@ def chatbot():
     # Game options for dropdown -> GENERATE THIS DINAMICALLY! (find another way to select boardgame)
     game_options = ["Unlock Secret Adventures", "The Mind Extreme", "SpellBook", "Chimera Station"]
     selected_game = st.selectbox("Select a game:", game_options, index=game_options.index(st.session_state.selected_game))
-    st.session_state.selected_game = selected_game
+
+    # Update selected game only when the selection changes
+    if selected_game != st.session_state.selected_game:
+        st.session_state.selected_game = selected_game
+        st.rerun()
 
     # SIDEBAR PREVIOUS CONVERSATIONS
     # Store the selected game in session state
@@ -139,6 +143,7 @@ def chatbot():
         for game_name in games:
             if st.sidebar.button(f"View Conversations for {game_name}"):
                 st.session_state.selected_game = game_name
+                st.rerun()
 
     # Display conversations for the selected game
     if "selected_game" in st.session_state:
@@ -154,9 +159,10 @@ def chatbot():
         st.write("Select a game from the sidebar to view conversations.")
 
     # Display chat messages from history on app rerun
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+    if "messages" in st.session_state:
+        for message in st.session_state.messages:
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
 
     def stream_response(prompt, context, description, name, llm, parser, template, input_variables):
         message_placeholder = st.empty()
@@ -175,10 +181,10 @@ def chatbot():
         except Exception as e:
             st.error(f"An error occurred: {str(e)}")
 
-        # Add the assistant's complete response to the chat history
-        if "messages" not in st.session_state:
-            st.session_state.messages = []
-        st.session_state.messages.append({"role": "assistant", "content": full_response, name:"Boardy"})
+        # # Add the assistant's complete response to the chat history
+        # if "messages" not in st.session_state:
+        #     st.session_state.messages = []
+        # st.session_state.messages.append({"role": "assistant", "content": full_response, name:"Boardy"})
 
     def batch_response(prompt, context, description, name, llm, parser, template, input_variables):
         # message_placeholder = st.empty()
@@ -225,13 +231,7 @@ def chatbot():
 
     prompt = st.chat_input(" ")
     if prompt:
-        # Display user message in chat container
-        with st.chat_message("user"):
-            st.markdown(prompt)
-        # Add user message to chat history
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        # Save user message to MongoDB
-        save_message_to_mongo("user", prompt, st.session_state.selected_game, st.session_state.user)
+        
         # Dynamically set metadata filter based on selected game
         metadata_filter = {'key': 'metadata.game_name', 'value': st.session_state.selected_game}
         context = []
@@ -267,7 +267,14 @@ def chatbot():
         # message_placeholder = st.empty()  # Placeholder for displaying the response
         try:
             # chain = PromptTemplate(template=template_string, input_variables=input_variables) | st.session_state.llm | st.session_state.parser
-
+            
+            # Display user message in chat container
+            with st.chat_message("user"):
+                st.markdown(prompt)
+            # Add user message to chat history
+            # st.session_state.messages.append({"role": "user", "content": prompt})
+            # Save user message to MongoDB
+            save_message_to_mongo("user", prompt, st.session_state.selected_game, st.session_state.user)
             # Stream the model's output chunk by chunk
             stream_response(prompt, context, description, name, st.session_state.llm, st.session_state.parser, template_string, input_variables)
 
