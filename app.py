@@ -1,8 +1,14 @@
 if __name__ == '__main__':
     import streamlit as st
     from login_page import *
+    from css import css
     from main_page import chatbot
     # Main Flow
+    #markdown RULES CUSTOM
+    st.markdown(
+        css,
+        unsafe_allow_html=True,
+    )
     if "authenticated" not in st.session_state:
         st.session_state.authenticated = False
 

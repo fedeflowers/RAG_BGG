@@ -30,6 +30,8 @@ def chatbot():
     SIMILARITY_THRESHOLD = 0.9
     DECAY = 0.05
     MIN_DOCUMENTS = 10
+    USER_ICON = "icons\\user_icon.png"  # Replace with your user icon
+    BOT_ICON = "icons\\bot_icon.png"  # Replace with your bot icon    
     COLLECTION_NAME = "automatic_ingestion"
     if COLLECTION_NAME == "transformer_sentece_splitter_2":
         EMBEDDING_MODEL_NAME = "thenlper/gte-small"
@@ -74,9 +76,6 @@ def chatbot():
         """Retrieve conversations for a specific game and user."""
         return list(chat_messages_collection.find({"user_id": user_id, "game_name": game_name}).sort("timestamp", 1))
 
-
-
-
     # Only run this block if not initialized
     if not st.session_state.initialized:
         # Initial setup
@@ -120,10 +119,10 @@ def chatbot():
         st.session_state.initialized = True
         placeholder.empty()
                          
-                         
+
     # Game options for dropdown -> GENERATE THIS DINAMICALLY! (find another way to select boardgame)
     game_options = ["Unlock Secret Adventures", "The Mind Extreme", "SpellBook", "Chimera Station"]
-    selected_game = st.selectbox("Select a game:", game_options, index=game_options.index(st.session_state.selected_game))
+    selected_game = st.sidebar.selectbox("Select a game:", game_options, index=game_options.index(st.session_state.selected_game))
 
     # Update selected game only when the selection changes
     if selected_game != st.session_state.selected_game:
@@ -151,8 +150,12 @@ def chatbot():
         conversations = retrieve_conversations_for_game(st.session_state.user, st.session_state.selected_game)
         if conversations:
             for message in conversations:
-                with st.chat_message(message["role"]):
-                    st.markdown(message["content"])
+                if message["role"] == "assistant":
+                    with st.chat_message(message["role"], avatar=BOT_ICON):
+                        st.markdown(message["content"])
+                else:
+                    with st.chat_message(message["role"], avatar=USER_ICON):
+                        st.markdown(message["content"])
         else:
             st.write("No conversations available for this game.")
     else:
@@ -176,15 +179,14 @@ def chatbot():
             for chunk in chain.stream({"context": context, "question": prompt, "description": description, "name": name}):
                 full_response += chunk
                 message_placeholder.markdown(full_response)
+                
+            # full_response = st.write_stream(chain.stream({"context": context, "question": prompt, "description": description, "name": name}))
 
             save_message_to_mongo("assistant", full_response, st.session_state.selected_game, st.session_state.user)
         except Exception as e:
             st.error(f"An error occurred: {str(e)}")
+        st.rerun()
 
-        # # Add the assistant's complete response to the chat history
-        # if "messages" not in st.session_state:
-        #     st.session_state.messages = []
-        # st.session_state.messages.append({"role": "assistant", "content": full_response, name:"Boardy"})
 
     def batch_response(prompt, context, description, name, llm, parser, template, input_variables):
         # message_placeholder = st.empty()
@@ -229,7 +231,7 @@ def chatbot():
         """
 
 
-    prompt = st.chat_input(" ")
+    prompt = st.chat_input(" ", max_chars=1000)
     if prompt:
         
         # Dynamically set metadata filter based on selected game
@@ -269,7 +271,7 @@ def chatbot():
             # chain = PromptTemplate(template=template_string, input_variables=input_variables) | st.session_state.llm | st.session_state.parser
             
             # Display user message in chat container
-            with st.chat_message("user"):
+            with st.chat_message("user", avatar=USER_ICON):
                 st.markdown(prompt)
             # Add user message to chat history
             # st.session_state.messages.append({"role": "user", "content": prompt})
