@@ -13,6 +13,7 @@ def chatbot():
     from langchain_community.embeddings import OpenAIEmbeddings
     from qdrant_client.http import models
     from pymongo import MongoClient
+    # from utils.avatar_manager import AvatarManager
     from utils.utils_funcs import (
         read_token_from_file,
         retrieve_query, 
@@ -129,6 +130,7 @@ def chatbot():
         st.session_state.selected_game = selected_game
         st.rerun()
 
+        
     # SIDEBAR PREVIOUS CONVERSATIONS
     # Store the selected game in session state
 
@@ -140,7 +142,7 @@ def chatbot():
     # Sidebar with clickable boxes for each game
     if games:
         for game_name in games:
-            if st.sidebar.button(f"View Conversations for {game_name}"):
+            if st.sidebar.button(f"{game_name}"):
                 st.session_state.selected_game = game_name
                 st.rerun()
 
@@ -167,25 +169,25 @@ def chatbot():
             with st.chat_message(message["role"]):
                 st.markdown(message["content"])
 
-    def stream_response(prompt, context, description, name, llm, parser, template, input_variables):
-        message_placeholder = st.empty()
-        full_response = ""
+    def stream_response(prompt, context, description, name, llm, parser, template, input_variables, avatar):
+        with st.chat_message("assistant", avatar=avatar):
+            message_placeholder = st.empty()
+            full_response = ""
 
-        # Create a Langchain chain
-        try:
-            chain = PromptTemplate(template=template, input_variables=input_variables) | llm | parser
+            # Create a Langchain chain
+            try:
+                chain = PromptTemplate(template=template, input_variables=input_variables) | llm | parser
 
-            # Stream the model's output chunk by chunk
-            for chunk in chain.stream({"context": context, "question": prompt, "description": description, "name": name}):
-                full_response += chunk
-                message_placeholder.markdown(full_response)
-                
-            # full_response = st.write_stream(chain.stream({"context": context, "question": prompt, "description": description, "name": name}))
+                # Stream the model's output chunk by chunk
+                for chunk in chain.stream({"context": context, "question": prompt, "description": description, "name": name}):
+                    full_response += chunk
+                    message_placeholder.markdown(full_response)
 
-            save_message_to_mongo("assistant", full_response, st.session_state.selected_game, st.session_state.user)
-        except Exception as e:
-            st.error(f"An error occurred: {str(e)}")
-        st.rerun()
+                # Save the final message to MongoDB
+                save_message_to_mongo("assistant", full_response, st.session_state.selected_game, st.session_state.user)
+            except Exception as e:
+                st.error(f"An error occurred: {str(e)}")
+
 
 
     def batch_response(prompt, context, description, name, llm, parser, template, input_variables):
@@ -278,7 +280,7 @@ def chatbot():
             # Save user message to MongoDB
             save_message_to_mongo("user", prompt, st.session_state.selected_game, st.session_state.user)
             # Stream the model's output chunk by chunk
-            stream_response(prompt, context, description, name, st.session_state.llm, st.session_state.parser, template_string, input_variables)
+            stream_response(prompt, context, description, name, st.session_state.llm, st.session_state.parser, template_string, input_variables, BOT_ICON)
 
         except Exception as e:
             st.error(f"An error occurred: {str(e)}")
