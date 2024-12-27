@@ -1,4 +1,4 @@
-def chatbot():
+def chatbot_page():
     import streamlit as st
     import openai
     from langchain.chat_models import ChatOpenAI
@@ -24,7 +24,10 @@ def chatbot():
     import re
     from io import BytesIO
     from PIL import Image
+    from login_page import UserAuthApp
 
+
+    # Constants
     # MAX_TOKENS = 1200
     TEMPERATURE=0.2
     NUM_DOCS_RETRIEVED = 10
@@ -39,7 +42,7 @@ def chatbot():
     elif COLLECTION_NAME == "automatic_ingestion":
         EMBEDDING_MODEL_NAME = "text-embedding-ada-002"
 
-    # Initialize session state keys for models and game options
+    # Initialize session state keys for models and game options    
     if "initialized" not in st.session_state:
         st.session_state.initialized = False
 
@@ -55,6 +58,8 @@ def chatbot():
     if "mongo_client" not in st.session_state:
         client = MongoClient("mongodb://localhost:27017/")
         st.session_state.mongo_client = client
+    if "user_authenticator" not in st.session_state:
+        st.session_state.user_authenticator = UserAuthApp()
 
     chat_messages_collection = st.session_state.mongo_client["RAG_DB"]["chat_messages"]
 
@@ -168,6 +173,10 @@ def chatbot():
         for message in st.session_state.messages:
             with st.chat_message(message["role"]):
                 st.markdown(message["content"])
+
+    st.sidebar.divider()
+    st.sidebar.button("Logout", on_click=st.session_state.user_authenticator.logout)
+
 
     def stream_response(prompt, context, description, name, llm, parser, template, input_variables, avatar):
         with st.chat_message("assistant", avatar=avatar):
