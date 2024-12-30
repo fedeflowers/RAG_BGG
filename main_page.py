@@ -196,6 +196,7 @@ def chatbot_page():
                 save_message_to_mongo("assistant", full_response, st.session_state.selected_game, st.session_state.user)
             except Exception as e:
                 st.error(f"An error occurred: {str(e)}")
+        st.rerun()
 
 
 
