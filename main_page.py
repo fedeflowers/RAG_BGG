@@ -164,7 +164,8 @@ def chatbot_page():
                     with st.chat_message(message["role"], avatar=USER_ICON):
                         st.markdown(message["content"])
         else:
-            st.write("No conversations available for this game.")
+            with st.chat_message("assistant", avatar=BOT_ICON):
+                st.markdown("I am Boardy, your personal board game geek, Ask anything about this game, I am happy to answer any questions")
     else:
         st.write("Select a game from the sidebar to view conversations.")
 
@@ -194,6 +195,8 @@ def chatbot_page():
 
                 # Save the final message to MongoDB
                 save_message_to_mongo("assistant", full_response, st.session_state.selected_game, st.session_state.user)
+                #add reference to pages and headers
+
             except Exception as e:
                 st.error(f"An error occurred: {str(e)}")
         st.rerun()
@@ -244,16 +247,21 @@ def chatbot_page():
 
 
     prompt = st.chat_input(" ", max_chars=1000)
+    
     if prompt:
-        
+        with st.chat_message("user", avatar=USER_ICON):
+            st.markdown(prompt)
+            # Add user message to chat history
+            # Save user message to MongoDB
+        save_message_to_mongo("user", prompt, st.session_state.selected_game, st.session_state.user)
         # Dynamically set metadata filter based on selected game
         metadata_filter = {'key': 'metadata.game_name', 'value': st.session_state.selected_game}
         context = []
         while SIMILARITY_THRESHOLD > DECAY and len(context) < MIN_DOCUMENTS:
             try:
-                context, game_id = retrieve_query(
-                                                prompt, 
-                                                NUM_DOCS_RETRIEVED, 
+                metadata, context, game_id = retrieve_query(
+                                                prompt,
+                                                NUM_DOCS_RETRIEVED,
                                                 st.session_state.embedding_model,
                                                 st.session_state.qdrant_client, 
                                                 st.session_state.vector_store,
@@ -268,7 +276,8 @@ def chatbot_page():
                 print(f"Error: {e}")
                 SIMILARITY_THRESHOLD -= DECAY
                 print("setting similarity threshold to", SIMILARITY_THRESHOLD)
-        name, description = get_game_details(game_id)
+        description = get_game_details(game_id)
+        name = st.session_state.selected_game
 
         # # # Call the async function to stream the response
         # intermediate_response = batch_response(prompt, context, description, name, st.session_state.llm, st.session_state.parser, template_string, ["context", "question", "description", "name"])
@@ -281,17 +290,9 @@ def chatbot_page():
         # message_placeholder = st.empty()  # Placeholder for displaying the response
         try:
             # chain = PromptTemplate(template=template_string, input_variables=input_variables) | st.session_state.llm | st.session_state.parser
-            
-            # Display user message in chat container
-            with st.chat_message("user", avatar=USER_ICON):
-                st.markdown(prompt)
-            # Add user message to chat history
-            # st.session_state.messages.append({"role": "user", "content": prompt})
-            # Save user message to MongoDB
-            save_message_to_mongo("user", prompt, st.session_state.selected_game, st.session_state.user)
-            # Stream the model's output chunk by chunk
+            # print(metadata)
+            # Stream the model's output chunk by chunk, make it last one cause it has the rerun in it, to update interface 
             stream_response(prompt, context, description, name, st.session_state.llm, st.session_state.parser, template_string, input_variables, BOT_ICON)
-
         except Exception as e:
             st.error(f"An error occurred: {str(e)}")
 
