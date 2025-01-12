@@ -6,6 +6,7 @@ if __name__ == '__main__':
     from streamlit_cookies_manager import EncryptedCookieManager
     from utils.utils_funcs import read_token_from_file
     from cookie_manager import CookieManager
+    from ingestion_module import ingestion_page
 
     # Main Flow
     #markdown RULES CUSTOM
@@ -22,8 +23,10 @@ if __name__ == '__main__':
         st.session_state.page = 'login'
 
     if st.session_state.authenticated:
-        st.session_state.page = 'chatbot'
-        chatbot_page()
+        if st.session_state.page == 'chatbot':
+            chatbot_page()
+        elif st.session_state.page == 'ingestion':
+            ingestion_page()
     else:
         option = st.sidebar.selectbox("Choose", ["Login", "Sign Up"])
         if option == "Login":

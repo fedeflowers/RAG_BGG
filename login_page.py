@@ -51,7 +51,7 @@ class UserAuthApp:
             if success:
                 st.session_state.authenticated = True
                 st.session_state.user = user
-                st.session_state.page = 'main'
+                st.session_state.page = 'chatbot'
 
 
                 st.rerun()
@@ -95,7 +95,7 @@ class UserAuthApp:
             if user:
                 st.session_state.authenticated = True
                 st.session_state.user = user
-                st.session_state.page = 'main'
+                st.session_state.page = 'chatbot'
 
 # # Run the app
 # if __name__ == "__main__":

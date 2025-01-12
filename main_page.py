@@ -1,5 +1,6 @@
 def chatbot_page():
     import streamlit as st
+    from ingestion_module import ingestion_page
     import openai
     from langchain.chat_models import ChatOpenAI
     import pandas as pd
@@ -60,6 +61,7 @@ def chatbot_page():
         st.session_state.mongo_client = client
     if "user_authenticator" not in st.session_state:
         st.session_state.user_authenticator = UserAuthApp()
+    
 
     chat_messages_collection = st.session_state.mongo_client["RAG_DB"]["chat_messages"]
 
@@ -81,6 +83,8 @@ def chatbot_page():
     def retrieve_conversations_for_game(user_id, game_name):
         """Retrieve conversations for a specific game and user."""
         return list(chat_messages_collection.find({"user_id": user_id, "game_name": game_name}).sort("timestamp", 1))
+
+    
 
     # Only run this block if not initialized
     if not st.session_state.initialized:
@@ -124,10 +128,10 @@ def chatbot_page():
         # Set initialization flag to True
         st.session_state.initialized = True
         placeholder.empty()
-                         
+                        
 
     # Game options for dropdown -> GENERATE THIS DINAMICALLY! (find another way to select boardgame)
-    game_options = ["Unlock Secret Adventures", "The Mind Extreme", "SpellBook", "Chimera Station"]
+    game_options = ["Unlock Secret Adventures", "The Mind Extreme", "SpellBook", "Chimera Station", "Skull King"]
     selected_game = st.sidebar.selectbox("Select a game:", game_options, index=game_options.index(st.session_state.selected_game))
 
     # Update selected game only when the selection changes
@@ -142,13 +146,19 @@ def chatbot_page():
     st.sidebar.title("Previous Conversations")
 
     # Retrieve all unique games for the logged-in user
-    games = retrieve_previous_conversations_by_game(st.session_state.user)
+    st.session_state.games = retrieve_previous_conversations_by_game(st.session_state.user)
 
-    # Sidebar with clickable boxes for each game
-    if games:
-        for game_name in games:
-            if st.sidebar.button(f"{game_name}"):
+    for game_name in st.session_state.games:
+        with st.sidebar.container():
+            # Create a horizontal layout with columns
+            cols = st.columns([2, 1])  # Adjust column proportions
+            if cols[0].button(f"🎮 {game_name}", key=f"select_{game_name}"):
                 st.session_state.selected_game = game_name
+                st.rerun()
+            if cols[1].button("❌", key=f"delete_{game_name}"):
+                st.session_state.games.remove(game_name)
+                #remove from mongo
+                chat_messages_collection.delete_many({"game_name": game_name})
                 st.rerun()
 
     # Display conversations for the selected game
@@ -177,6 +187,13 @@ def chatbot_page():
 
     st.sidebar.divider()
     st.sidebar.button("Logout", on_click=st.session_state.user_authenticator.logout)
+
+
+    def go_to_ingestion():
+        st.session_state.page = "ingestion"
+    #button for pdf ingestion
+    st.sidebar.button("Ingest PDF", on_click=go_to_ingestion)
+
 
 
     def stream_response(prompt, context, description, name, llm, parser, template, input_variables, avatar):
@@ -278,6 +295,7 @@ def chatbot_page():
                 print("setting similarity threshold to", SIMILARITY_THRESHOLD)
         description = get_game_details(game_id)
         name = st.session_state.selected_game
+        # print(metadata)
 
         # # # Call the async function to stream the response
         # intermediate_response = batch_response(prompt, context, description, name, st.session_state.llm, st.session_state.parser, template_string, ["context", "question", "description", "name"])
