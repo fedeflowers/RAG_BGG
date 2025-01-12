@@ -5,7 +5,7 @@ if __name__ == '__main__':
     from main_page import chatbot_page
     from streamlit_cookies_manager import EncryptedCookieManager
     from utils.utils_funcs import read_token_from_file
-    from cookie_manager import CookieManager
+    from utils.cookie_manager import CookieManager
     from ingestion_module import ingestion_page
 
     # Main Flow

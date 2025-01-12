@@ -3,7 +3,7 @@ from pymongo import MongoClient
 from streamlit_cookies_manager import EncryptedCookieManager
 from utils.utils_funcs import read_token_from_file
 import bcrypt
-from cookie_manager import CookieManager
+from utils.cookie_manager import CookieManager
 
 
 class UserAuthApp:
