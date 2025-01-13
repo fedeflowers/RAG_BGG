@@ -36,12 +36,14 @@ def chatbot_page():
     DECAY = 0.05
     MIN_DOCUMENTS = 10
     USER_ICON = "icons\\user_icon.png"  # Replace with your user icon
-    BOT_ICON = "icons\\bot_icon.png"  # Replace with your bot icon    
-    COLLECTION_NAME = "automatic_ingestion"
-    if COLLECTION_NAME == "transformer_sentece_splitter_2":
-        EMBEDDING_MODEL_NAME = "thenlper/gte-small"
-    elif COLLECTION_NAME == "automatic_ingestion":
-        EMBEDDING_MODEL_NAME = "text-embedding-ada-002"
+    BOT_ICON = "icons\\bot_icon.png"  # Replace with your bot icon 
+    #automatizzare selezione collections, ha senso fare più collections? io ne hardcoderei una e bona.
+    #una volta che qualcuno carica i docs se li vuole tenere
+    COLLECTION_NAME = "automatic_ingestion_v2"
+    # if COLLECTION_NAME == "transformer_sentece_splitter_2":
+    #     EMBEDDING_MODEL_NAME = "thenlper/gte-small"
+    # elif COLLECTION_NAME == "automatic_ingestion":
+    #     EMBEDDING_MODEL_NAME = "text-embedding-ada-002"
 
     # Initialize session state keys for models and game options    
     if "initialized" not in st.session_state:
@@ -53,20 +55,27 @@ def chatbot_page():
     if "messages" not in st.session_state:
         st.session_state.messages = []
 
-    if "selected_game" not in st.session_state:
-        st.session_state.selected_game = "Unlock Secret Adventures"
+    # if "selected_game" not in st.session_state:
+    #     st.session_state.selected_game = ""
 
     if "mongo_client" not in st.session_state:
         client = MongoClient("mongodb://localhost:27017/")
         st.session_state.mongo_client = client
     if "user_authenticator" not in st.session_state:
         st.session_state.user_authenticator = UserAuthApp()
+    if "mongo_collection_chats" not in st.session_state:
+        st.session_state.mongo_collection_chats = st.session_state.mongo_client["RAG_DB"]["chat_messages"]
+    if "mongo_collection_games" not in st.session_state:
+        st.session_state.mongo_collection_games = st.session_state.mongo_client["RAG_DB"]["games"]
+    if "collection_qdrant" not in st.session_state:
+        st.session_state.collection_qdrant = COLLECTION_NAME
+
+    
+    
     
 
-    chat_messages_collection = st.session_state.mongo_client["RAG_DB"]["chat_messages"]
-
 # Helper Functions
-    def save_message_to_mongo(role, content, game_name, user_id):
+    def save_message_to_mongo(role, content, game_name, user_id, chat_messages_collection):
         """Save a message to the MongoDB collection."""
         chat_messages_collection.insert_one({
             "user_id": user_id,  # Add user identification
@@ -76,13 +85,17 @@ def chatbot_page():
             "timestamp": pd.Timestamp.now()
         })
 
-    def retrieve_previous_conversations_by_game(user_id):
+    def retrieve_previous_conversations_by_game(user_id, chat_messages_collection):
         """Retrieve all unique game names with conversations for the specified user."""
         return chat_messages_collection.distinct("game_name", {"user_id": user_id})
 
-    def retrieve_conversations_for_game(user_id, game_name):
+    def retrieve_conversations_for_game(user_id, game_name, chat_messages_collection):
         """Retrieve conversations for a specific game and user."""
         return list(chat_messages_collection.find({"user_id": user_id, "game_name": game_name}).sort("timestamp", 1))
+    
+    def retrieve_games_list(games_collection):
+        """Retrieve all unique game names."""
+        return games_collection.distinct("game_name")
 
     
 
@@ -128,25 +141,37 @@ def chatbot_page():
         # Set initialization flag to True
         st.session_state.initialized = True
         placeholder.empty()
+
+        game_options = retrieve_games_list(st.session_state.mongo_collection_games)
+        #no games found
+        if len(game_options) != 0:
+            st.session_state.selected_game = game_options[0]
                         
 
+    # SIDEBAR PREVIOUS CONVERSATIONS
+    game_options = retrieve_games_list(st.session_state.mongo_collection_games)
+    # Store the selected game in session state
+    if len(retrieve_games_list(st.session_state.mongo_collection_games)) != 0 :
+        st.sidebar.title("Previous Conversations")
+        st.session_state.selected_game = game_options[0]
+    else:
+        st.sidebar.markdown("No games found, <br> ingest a PDF to start", unsafe_allow_html=True)
+
     # Game options for dropdown -> GENERATE THIS DINAMICALLY! (find another way to select boardgame)
-    game_options = ["Unlock Secret Adventures", "The Mind Extreme", "SpellBook", "Chimera Station", "Skull King"]
-    selected_game = st.sidebar.selectbox("Select a game:", game_options, index=game_options.index(st.session_state.selected_game))
+    if "selected_game" in st.session_state:
+        selected_game = st.sidebar.selectbox("Select a game:", game_options, index=game_options.index(st.session_state.selected_game))
 
     # Update selected game only when the selection changes
-    if selected_game != st.session_state.selected_game:
-        st.session_state.selected_game = selected_game
-        st.rerun()
+    if "selected_game" in st.session_state:
+        if selected_game != st.session_state.selected_game:
+            st.session_state.selected_game = selected_game
+            st.rerun()
 
         
-    # SIDEBAR PREVIOUS CONVERSATIONS
-    # Store the selected game in session state
-
-    st.sidebar.title("Previous Conversations")
+    
 
     # Retrieve all unique games for the logged-in user
-    st.session_state.games = retrieve_previous_conversations_by_game(st.session_state.user)
+    st.session_state.games = retrieve_previous_conversations_by_game(st.session_state.user, st.session_state.mongo_collection_chats)
 
     for game_name in st.session_state.games:
         with st.sidebar.container():
@@ -158,13 +183,13 @@ def chatbot_page():
             if cols[1].button("❌", key=f"delete_{game_name}"):
                 st.session_state.games.remove(game_name)
                 #remove from mongo
-                chat_messages_collection.delete_many({"game_name": game_name})
+                st.session_state.mongo_collection_chats.delete_many({"game_name": game_name})
                 st.rerun()
 
     # Display conversations for the selected game
     if "selected_game" in st.session_state:
         st.title(f"Conversations for {st.session_state.selected_game}")
-        conversations = retrieve_conversations_for_game(st.session_state.user, st.session_state.selected_game)
+        conversations = retrieve_conversations_for_game(st.session_state.user, st.session_state.selected_game, st.session_state.mongo_collection_chats)
         if conversations:
             for message in conversations:
                 if message["role"] == "assistant":
@@ -196,7 +221,7 @@ def chatbot_page():
 
 
 
-    def stream_response(prompt, context, description, name, llm, parser, template, input_variables, avatar):
+    def stream_response(prompt, context, name, llm, parser, template, input_variables, avatar):
         with st.chat_message("assistant", avatar=avatar):
             message_placeholder = st.empty()
             full_response = ""
@@ -206,12 +231,12 @@ def chatbot_page():
                 chain = PromptTemplate(template=template, input_variables=input_variables) | llm | parser
 
                 # Stream the model's output chunk by chunk
-                for chunk in chain.stream({"context": context, "question": prompt, "description": description, "name": name}):
+                for chunk in chain.stream({"context": context, "question": prompt, "name": name}):
                     full_response += chunk
                     message_placeholder.markdown(full_response)
 
                 # Save the final message to MongoDB
-                save_message_to_mongo("assistant", full_response, st.session_state.selected_game, st.session_state.user)
+                save_message_to_mongo("assistant", full_response, st.session_state.selected_game, st.session_state.user, st.session_state.mongo_collection_chats)
                 #add reference to pages and headers
 
             except Exception as e:
@@ -242,11 +267,6 @@ def chatbot_page():
         The game you're explaining today is: **{name}**
 
         ---
-        **Game Overview**:  
-        Here’s a description of the game to give you more context about its theme, goals, and mechanics:  
-        _{description}_
-
-        ---
         **Current Situation**:  
         This is the specific context that can help you answer the question, Usually it should give you the game's rules, mechanics, and scenarios only if presented in context:  
         _{context}_
@@ -270,13 +290,13 @@ def chatbot_page():
             st.markdown(prompt)
             # Add user message to chat history
             # Save user message to MongoDB
-        save_message_to_mongo("user", prompt, st.session_state.selected_game, st.session_state.user)
+        save_message_to_mongo("user", prompt, st.session_state.selected_game, st.session_state.user, st.session_state.mongo_collection_chats)
         # Dynamically set metadata filter based on selected game
         metadata_filter = {'key': 'metadata.game_name', 'value': st.session_state.selected_game}
         context = []
         while SIMILARITY_THRESHOLD > DECAY and len(context) < MIN_DOCUMENTS:
             try:
-                metadata, context, game_id = retrieve_query(
+                metadata, context = retrieve_query(
                                                 prompt,
                                                 NUM_DOCS_RETRIEVED,
                                                 st.session_state.embedding_model,
@@ -293,13 +313,13 @@ def chatbot_page():
                 print(f"Error: {e}")
                 SIMILARITY_THRESHOLD -= DECAY
                 print("setting similarity threshold to", SIMILARITY_THRESHOLD)
-        description = get_game_details(game_id)
+        # description = get_game_details(game_id)
         name = st.session_state.selected_game
         # print(metadata)
 
         # # # Call the async function to stream the response
         # intermediate_response = batch_response(prompt, context, description, name, st.session_state.llm, st.session_state.parser, template_string, ["context", "question", "description", "name"])
-        input_variables = ["context", "question", "description", "name"]
+        input_variables = ["context", "question", "name"]
         # if intermediate_response:
         #     print("intermediate_response TRUE")
         # Second part of the model, actual streaming with images
@@ -310,7 +330,7 @@ def chatbot_page():
             # chain = PromptTemplate(template=template_string, input_variables=input_variables) | st.session_state.llm | st.session_state.parser
             # print(metadata)
             # Stream the model's output chunk by chunk, make it last one cause it has the rerun in it, to update interface 
-            stream_response(prompt, context, description, name, st.session_state.llm, st.session_state.parser, template_string, input_variables, BOT_ICON)
+            stream_response(prompt, context, name, st.session_state.llm, st.session_state.parser, template_string, input_variables, BOT_ICON)
         except Exception as e:
             st.error(f"An error occurred: {str(e)}")
 

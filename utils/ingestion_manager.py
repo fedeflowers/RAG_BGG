@@ -8,10 +8,11 @@ from qdrant_client import QdrantClient
 from langchain_qdrant import QdrantVectorStore
 from langchain.embeddings import OpenAIEmbeddings  # Correct import path for OpenAI embeddings
 import os
+from pymongo import MongoClient, errors
 
 
 class IngestionManager:
-    def __init__(self, path_qdrant_key, path_openai_key, path_qdrant_cloud, collection_name):
+    def __init__(self, path_qdrant_key, path_openai_key, path_qdrant_cloud, collection_mongo ):
         self.headers_to_split =  [
             ("#", "Header 1"),
             ("##", "Header 2"),
@@ -25,10 +26,11 @@ class IngestionManager:
             self.headers_to_split,
             strip_headers=False
         )
+        self.collection_mongo = collection_mongo
         self.URL = read_token_from_file(path_qdrant_cloud)
         os.environ["OPENAI_API_KEY"] = read_token_from_file(path_openai_key)
         self.API_KEY = read_token_from_file(path_qdrant_key)
-        self.collection_name = collection_name
+        # self.collection_qdrant = collection_qdrant
         self.docs_processed = None
         self.qdrant_client = QdrantClient(
             url=self.URL,
@@ -80,7 +82,7 @@ class IngestionManager:
 
         :return: List of processed chunks with metadata.
         """
-
+        
         import tempfile
         import os
 
@@ -90,10 +92,15 @@ class IngestionManager:
             temp_pdf_path = tmp_file.name
 
         to_ingest = []
+        file_name = pdf_file.name
+        game_name = file_name.rsplit(".", 1)[0]
+        if self.check_game_name(game_name):
+            raise Exception("Game name already exists in the database")
+
 
         # Convert the temporary PDF file into text
         rendered = self.converter(temp_pdf_path)
-        text, _, images = text_from_rendered(rendered)
+        text, _, _ = text_from_rendered(rendered)
         chunks = self.text_splitter.split_text(text)
 
         # Add metadata for pages
@@ -119,9 +126,9 @@ class IngestionManager:
                 pages.append("Not found in Rulebook")
 
         # Extract game metadata from the file name
-        file_name = pdf_file.name
+        
         txt_dict = {
-            "game_name": file_name.rsplit(".", 1)[0],
+            "game_name": game_name,
         }
 
         # Add metadata to each chunk
@@ -129,7 +136,8 @@ class IngestionManager:
             chunk.metadata['game_name'] = txt_dict['game_name']
             chunk.metadata['pages'] = pages[i]
             to_ingest.append(chunk)
-
+        #add game to mongo
+        self.add_game_name_to_mongo(game_name)
 
         return to_ingest
 
@@ -154,4 +162,18 @@ class IngestionManager:
             force_recreate = False
         )
         return vector_store
+    
+    def add_game_name_to_mongo(self, game_name):
+        try:
+            # Insert the new game name
+            self.collection_mongo.insert_one({"game_name": game_name})
+            return True  # Successfully added
+        except errors.PyMongoError as e:
+            raise Exception(f"An error occurred while adding the game name to MongoDB: {e}")
+        
+    def check_game_name(self, game_name):
+        # Check if the game name already exists
+        if self.collection_mongo.find_one({"game_name": game_name}):
+            return True  # Game name already exists
+        return False
 
