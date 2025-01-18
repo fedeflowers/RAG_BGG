@@ -26,7 +26,6 @@ def ingestion_page():
                                                         path_openai_key= OPENAI_API_KEY,
                                                         path_qdrant_cloud=QDRANT_CLOUD,
                                                         collection_mongo= COLLECTION_MONGO)
-                    print("porca madonna")
 
                     to_ingest = ingestion_manager.ingest_pdfs(uploaded_file)
 

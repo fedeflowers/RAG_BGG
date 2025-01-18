@@ -211,13 +211,14 @@ def chatbot_page():
                 st.markdown(message["content"])
 
     st.sidebar.divider()
-    st.sidebar.button("Logout", on_click=st.session_state.user_authenticator.logout)
 
 
     def go_to_ingestion():
         st.session_state.page = "ingestion"
     #button for pdf ingestion
     st.sidebar.button("Ingest PDF", on_click=go_to_ingestion)
+    st.sidebar.button("Logout", on_click=st.session_state.user_authenticator.logout)
+
 
 
 
