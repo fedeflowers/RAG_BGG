@@ -4,6 +4,7 @@ detectron2/
 keys/
 .venv/
 ignore/
+env/
 
 # Ignore specific files
 prototype_HF.ipynb

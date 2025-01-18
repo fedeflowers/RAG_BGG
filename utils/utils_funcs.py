@@ -139,7 +139,7 @@ def retrieve_query(query, k, embedding_model, qdrant_client, vector_store, metad
     k: Number of documents to retrieve.
     metadata_filter: Dictionary specifying filter conditions (e.g., { "key": "game_name", "value": "Unlock" })
     '''
-    
+    game_id = context = []
     if metadata_filter:
         # Create a filter based on the provided metadata
         filter_conditions = models.Filter(
@@ -187,9 +187,10 @@ def retrieve_query(query, k, embedding_model, qdrant_client, vector_store, metad
         # print(f"Retrieved result: {doc}")
     
     # Extract content from the result
-    game_id = result[-1].metadata["game_id"]
-    context = [doc.page_content for doc in result]
-    image_metadata = result[-1].metadata['images']
+    if result:
+        # game_id = result[-1].metadata["game_id"]
+        metadata = [doc.metadata for doc in result]
+        context = [doc.page_content for doc in result]
 
     # Loop through metadata and find elements that start with "image"
     # for doc in result:
@@ -197,7 +198,7 @@ def retrieve_query(query, k, embedding_model, qdrant_client, vector_store, metad
     #         if key.startswith("image"):
     #             image_metadata[key] = value
     
-    return context, game_id, image_metadata
+    return metadata, context
 
 
 
@@ -210,9 +211,11 @@ def get_game_details(game_id):
     if response.status_code == 200:
         soup = BeautifulSoup(response.content, 'xml')
         # Extracting the description of the game
-        name = soup.find('name').text
         description = soup.find('description').text
-        return (name, description)
+        return description
     else:
         print("Failed to retrieve game details.")
         return None
+
+
+
