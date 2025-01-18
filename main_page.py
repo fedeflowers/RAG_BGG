@@ -6,6 +6,7 @@ def chatbot_page():
     import pandas as pd
     from langchain_huggingface import HuggingFaceEmbeddings
     from langchain_qdrant import QdrantVectorStore
+    from qdrant_client.http.models import CollectionInfo, VectorParams
     # from langchain_ollama.llms import OllamaLLM
     from langchain.prompts import PromptTemplate
     from langchain_core.output_parsers import StrOutputParser
@@ -19,7 +20,8 @@ def chatbot_page():
         read_token_from_file,
         retrieve_query, 
         get_game_details,
-        connect_Qdrant
+        connect_Qdrant,
+        get_templated_prompt
     )
     import base64
     import re
@@ -34,16 +36,11 @@ def chatbot_page():
     NUM_DOCS_RETRIEVED = 10
     SIMILARITY_THRESHOLD = 0.9
     DECAY = 0.05
-    MIN_DOCUMENTS = 10
+    MIN_DOCUMENTS = 5
     USER_ICON = "icons\\user_icon.png"  # Replace with your user icon
     BOT_ICON = "icons\\bot_icon.png"  # Replace with your bot icon 
-    #automatizzare selezione collections, ha senso fare più collections? io ne hardcoderei una e bona.
-    #una volta che qualcuno carica i docs se li vuole tenere
-    COLLECTION_NAME = "automatic_ingestion_v2"
-    # if COLLECTION_NAME == "transformer_sentece_splitter_2":
-    #     EMBEDDING_MODEL_NAME = "thenlper/gte-small"
-    # elif COLLECTION_NAME == "automatic_ingestion":
-    #     EMBEDDING_MODEL_NAME = "text-embedding-ada-002"
+    COLLECTION_NAME = "automatic_ingestion_v3"
+    EMBEDDING_SIZE = 1536
 
     # Initialize session state keys for models and game options    
     if "initialized" not in st.session_state:
@@ -115,25 +112,32 @@ def chatbot_page():
             openai_api_key=openai.api_key,
             model="text-embedding-ada-002",  # Specify the desired OpenAI embedding model
         )
-        # else:
-        #     st.session_state.embedding_model = HuggingFaceEmbeddings(
-        #         model_name=EMBEDDING_MODEL_NAME,
-        #         multi_process=True,
-        #         model_kwargs={"device": "cuda"},
-        #         encode_kwargs={"normalize_embeddings": True},
-        #     )
-        # text-embedding-ada-002
 
         # Connect to Qdrant
         st.session_state.qdrant_client = connect_Qdrant(URL, API_KEY)
         #parser 
         st.session_state.parser = StrOutputParser()
         # Initialize vector store
-        st.session_state.vector_store = QdrantVectorStore(
-            client=st.session_state.qdrant_client,
-            collection_name=COLLECTION_NAME,
-            embedding=st.session_state.embedding_model,
-        )
+        collections = st.session_state.qdrant_client.get_collections()
+        # collections_list = [desc.name for desc in collections[0][1]]
+        coll_names = [c.name for c in collections.collections]
+        if COLLECTION_NAME not in coll_names:
+            # Define parameters for the collection
+            vector_params = VectorParams(
+                size=EMBEDDING_SIZE,
+                distance="Cosine"  # Use the appropriate distance metric
+            )
+            # Create the collection
+            st.session_state.qdrant_client.create_collection(
+                collection_name=COLLECTION_NAME,
+                vectors_config=vector_params
+            )
+        else:
+            st.session_state.vector_store = QdrantVectorStore(
+                client=st.session_state.qdrant_client,
+                collection_name=COLLECTION_NAME,
+                embedding=st.session_state.embedding_model,
+            )
 
         # Initialize the LLM
         st.session_state.llm = ChatOpenAI(openai_api_key=openai.api_key,model=st.session_state['openai_model'], temperature=TEMPERATURE)
@@ -150,10 +154,10 @@ def chatbot_page():
 
     # SIDEBAR PREVIOUS CONVERSATIONS
     game_options = retrieve_games_list(st.session_state.mongo_collection_games)
+    # print("GAME OPTIONS", game_options)
     # Store the selected game in session state
-    if len(retrieve_games_list(st.session_state.mongo_collection_games)) != 0 :
+    if len(game_options) != 0 :
         st.sidebar.title("Previous Conversations")
-        st.session_state.selected_game = game_options[0]
     else:
         st.sidebar.markdown("No games found, <br> ingest a PDF to start", unsafe_allow_html=True)
 
@@ -190,7 +194,22 @@ def chatbot_page():
     if "selected_game" in st.session_state:
         st.title(f"Conversations for {st.session_state.selected_game}")
         conversations = retrieve_conversations_for_game(st.session_state.user, st.session_state.selected_game, st.session_state.mongo_collection_chats)
+        # print(conversations)
+        history = []
         if conversations:
+
+            conversations_copy = conversations.copy()
+            conversations_copy.sort(key=lambda x: x["timestamp"], reverse=True)
+            last_5 = conversations_copy[:5]
+            for i, message in enumerate(last_5):
+                occurrence = {}
+                if message["role"] == "assistant":
+                    occurrence["ANSWER_" + str(i)] = message["content"]
+                else:
+                    occurrence["QUESTION_" + str(i)] = message["content"]
+                history.append(occurrence)
+
+
             for message in conversations:
                 if message["role"] == "assistant":
                     with st.chat_message(message["role"], avatar=BOT_ICON):
@@ -198,6 +217,8 @@ def chatbot_page():
                 else:
                     with st.chat_message(message["role"], avatar=USER_ICON):
                         st.markdown(message["content"])
+
+            # print(history)
         else:
             with st.chat_message("assistant", avatar=BOT_ICON):
                 st.markdown("I am Boardy, your personal board game geek, Ask anything about this game, I am happy to answer any questions")
@@ -222,7 +243,7 @@ def chatbot_page():
 
 
 
-    def stream_response(prompt, context, name, llm, parser, template, input_variables, avatar):
+    def stream_response(prompt, context, name, llm, parser, template, input_variables, history, avatar):
         with st.chat_message("assistant", avatar=avatar):
             message_placeholder = st.empty()
             full_response = ""
@@ -232,7 +253,7 @@ def chatbot_page():
                 chain = PromptTemplate(template=template, input_variables=input_variables) | llm | parser
 
                 # Stream the model's output chunk by chunk
-                for chunk in chain.stream({"context": context, "question": prompt, "name": name}):
+                for chunk in chain.stream({"context": context, "question": prompt, "name": name, "history": history}):
                     full_response += chunk
                     message_placeholder.markdown(full_response)
 
@@ -260,28 +281,6 @@ def chatbot_page():
 
         return full_response
 
-    template_string = """
-        System: You are Boardy, an expert assistant specializing in board games. Your role is to provide authoritative, precise, and practical guidance on game rules, mechanics, strategies, and scenarios. 
-        You respond as the ultimate reference for the games discussed, ensuring clarity and correctness. Your answers should feel as though they’re guiding the player through a live game session. 
-        Avoid general advice or unrelated topics. Instead, focus entirely on providing rule explanations, strategic insights, and in-game examples based on the player's current scenario.
-
-        The game you're explaining today is: **{name}**
-
-        ---
-        **Current Situation**:  
-        This is the specific context that can help you answer the question, Usually it should give you the game's rules, mechanics, and scenarios only if presented in context:  
-        _{context}_
-
-        ---
-        **Player's Question**:  
-        _{question}_
-
-        ---
-        **Boardy's Response**:  
-        Provide your answer in an instructive and conversational tone as if you’re explaining the rules at the table. clarify mechanics, provide examples only if retrieved from the context:
-
-        - **Game Rule Explanation**: Offer precise details on the relevant game rules present in player's question, mechanics, or actions related to the question.
-        """
 
 
     prompt = st.chat_input(" ", max_chars=1000)
@@ -297,15 +296,15 @@ def chatbot_page():
         context = []
         while SIMILARITY_THRESHOLD > DECAY and len(context) < MIN_DOCUMENTS:
             try:
-                metadata, context = retrieve_query(
-                                                prompt,
-                                                NUM_DOCS_RETRIEVED,
-                                                st.session_state.embedding_model,
-                                                st.session_state.qdrant_client, 
-                                                st.session_state.vector_store,
-                                                metadata_filter = metadata_filter,
-                                                similarity_threshold=SIMILARITY_THRESHOLD
-                                                )
+                context = retrieve_query(
+                                        prompt,
+                                        NUM_DOCS_RETRIEVED,
+                                        st.session_state.embedding_model,
+                                        st.session_state.qdrant_client, 
+                                        st.session_state.vector_store,
+                                        metadata_filter = metadata_filter,
+                                        similarity_threshold=SIMILARITY_THRESHOLD
+                                        )
                 SIMILARITY_THRESHOLD -= DECAY
                 print("setting similarity threshold to", SIMILARITY_THRESHOLD)
                 if len(context) >= MIN_DOCUMENTS:
@@ -316,22 +315,12 @@ def chatbot_page():
                 print("setting similarity threshold to", SIMILARITY_THRESHOLD)
         # description = get_game_details(game_id)
         name = st.session_state.selected_game
-        # print(metadata)
 
-        # # # Call the async function to stream the response
-        # intermediate_response = batch_response(prompt, context, description, name, st.session_state.llm, st.session_state.parser, template_string, ["context", "question", "description", "name"])
-        input_variables = ["context", "question", "name"]
-        # if intermediate_response:
-        #     print("intermediate_response TRUE")
-        # Second part of the model, actual streaming with images
-        # buffer = ""
-        # full_response = ""
-        # message_placeholder = st.empty()  # Placeholder for displaying the response
+        input_variables = ["context", "question", "name", "history"]
         try:
-            # chain = PromptTemplate(template=template_string, input_variables=input_variables) | st.session_state.llm | st.session_state.parser
-            # print(metadata)
-            # Stream the model's output chunk by chunk, make it last one cause it has the rerun in it, to update interface 
-            stream_response(prompt, context, name, st.session_state.llm, st.session_state.parser, template_string, input_variables, BOT_ICON)
+            template_string = get_templated_prompt()
+            # print(context)
+            stream_response(prompt, context, name, st.session_state.llm, st.session_state.parser, template_string, input_variables, history,  BOT_ICON)
         except Exception as e:
             st.error(f"An error occurred: {str(e)}")
 
