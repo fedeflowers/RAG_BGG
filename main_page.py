@@ -17,11 +17,10 @@ def chatbot_page():
     from pymongo import MongoClient
     # from utils.avatar_manager import AvatarManager
     from utils.utils_funcs import (
-        read_token_from_file,
         retrieve_query, 
-        get_game_details,
         connect_Qdrant,
-        get_templated_prompt
+        get_templated_prompt,
+        extract_first_header
     )
     import base64
     import re
@@ -33,7 +32,7 @@ def chatbot_page():
     # Constants
     # MAX_TOKENS = 1200
     TEMPERATURE=0.2
-    NUM_DOCS_RETRIEVED = 10
+    NUM_DOCS_RETRIEVED = 5
     SIMILARITY_THRESHOLD = 0.9
     DECAY = 0.05
     MIN_DOCUMENTS = 5
@@ -243,7 +242,7 @@ def chatbot_page():
 
 
 
-    def stream_response(prompt, context, name, llm, parser, template, input_variables, history, avatar):
+    def stream_response(prompt, context, name, llm, parser, template, input_variables, history, avatar, reference):
         with st.chat_message("assistant", avatar=avatar):
             message_placeholder = st.empty()
             full_response = ""
@@ -253,9 +252,33 @@ def chatbot_page():
                 chain = PromptTemplate(template=template, input_variables=input_variables) | llm | parser
 
                 # Stream the model's output chunk by chunk
-                for chunk in chain.stream({"context": context, "question": prompt, "name": name, "history": history}):
+                for chunk in chain.stream({"context": context, "question": prompt, "name": name, "history": history, "reference": reference}):
                     full_response += chunk
                     message_placeholder.markdown(full_response)
+
+                #add references to response
+                if reference:
+                    unique_headers = set()
+                    formatted_references = []
+
+                    # Loop through the references to filter and format
+                    for entry in reference:
+                        if entry and isinstance(entry, tuple):  # Ignore None and invalid entries
+                            header, page = entry
+                            if header and header not in unique_headers:
+                                unique_headers.add(header)
+                                # Format the page, handling ranges or None
+                                if page:
+                                    formatted_page = f"Page {page}"
+                                else:
+                                    formatted_page = "No page specified"
+                                formatted_references.append(f"- {header} ({formatted_page})")
+
+                    # Combine the references into a markdown section
+                    if formatted_references:
+                        references_section = "\n\n### References:\n" + "\n".join(formatted_references)
+                        full_response += references_section
+                        message_placeholder.markdown(full_response)
 
                 # Save the final message to MongoDB
                 save_message_to_mongo("assistant", full_response, st.session_state.selected_game, st.session_state.user, st.session_state.mongo_collection_chats)
@@ -294,9 +317,10 @@ def chatbot_page():
         # Dynamically set metadata filter based on selected game
         metadata_filter = {'key': 'metadata.game_name', 'value': st.session_state.selected_game}
         context = []
+        metadata = []
         while SIMILARITY_THRESHOLD > DECAY and len(context) < MIN_DOCUMENTS:
             try:
-                context = retrieve_query(
+                metadata, context = retrieve_query(
                                         prompt,
                                         NUM_DOCS_RETRIEVED,
                                         st.session_state.embedding_model,
@@ -315,12 +339,19 @@ def chatbot_page():
                 print("setting similarity threshold to", SIMILARITY_THRESHOLD)
         # description = get_game_details(game_id)
         name = st.session_state.selected_game
+        #get references from metadata
+        reference = []
+        if metadata:
+            for doc in metadata:
+                reference.append(extract_first_header(doc))
+        # print("reference", reference)
+        # print("metadata", metadata)
 
-        input_variables = ["context", "question", "name", "history"]
+        input_variables = ["context", "question", "name", "history", "reference"]
         try:
             template_string = get_templated_prompt()
             # print(context)
-            stream_response(prompt, context, name, st.session_state.llm, st.session_state.parser, template_string, input_variables, history,  BOT_ICON)
+            stream_response(prompt, context, name, st.session_state.llm, st.session_state.parser, template_string, input_variables, history,  BOT_ICON, reference)
         except Exception as e:
             st.error(f"An error occurred: {str(e)}")
 

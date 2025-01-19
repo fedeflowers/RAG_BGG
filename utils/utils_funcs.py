@@ -139,7 +139,7 @@ def retrieve_query(query, k, embedding_model, qdrant_client, vector_store, metad
     k: Number of documents to retrieve.
     metadata_filter: Dictionary specifying filter conditions (e.g., { "key": "game_name", "value": "Unlock" })
     '''
-    game_id = context = []
+    metadata = context = []
     if metadata_filter:
         # Create a filter based on the provided metadata
         filter_conditions = models.Filter(
@@ -189,7 +189,7 @@ def retrieve_query(query, k, embedding_model, qdrant_client, vector_store, metad
     # Extract content from the result
     if result:
         # game_id = result[-1].metadata["game_id"]
-        # metadata = [doc.metadata for doc in result]
+        metadata = [doc.metadata for doc in result]
         context = [doc.page_content for doc in result]
 
     # Loop through metadata and find elements that start with "image"
@@ -198,7 +198,7 @@ def retrieve_query(query, k, embedding_model, qdrant_client, vector_store, metad
     #         if key.startswith("image"):
     #             image_metadata[key] = value
     
-    return context
+    return metadata, context
 
 
 
@@ -237,6 +237,10 @@ def get_templated_prompt():
         This is the specific context that can help you answer the question, Usually it should give you the game's rules, mechanics, and scenarios only if presented in context:  
         _{context}_
 
+        **References for the question**:
+        Here you can find metadata about the documents of the context you retrieved, they are in this format [('Header', 'page number'), ...], use them to guide the user if he/she is looking for a specific rule or mechanic,
+        if there are no references, you can say that no references were found in the rulebook:
+        _{reference}_
         ---
         **Player's Question**:  
         _{question}_
@@ -250,3 +254,33 @@ def get_templated_prompt():
         
         return template_string
 
+
+def extract_first_header(metadata):
+    """
+    Extracts the first available header (based on priority) and associated pages from metadata.
+    
+    Args:
+        metadata (dict): Dictionary containing metadata with headers and pages.
+    
+    Returns:
+        tuple: A tuple containing the header and pages (if available), or None if no header is found.
+    """
+    # Define the header priorities in order
+    header_priority = ["Header 1", "Header 2", "Header 3", "Header 4", "Header 5", "Header 6"]
+    
+    # Find the first available header based on priority
+    for header in header_priority:
+        if header in metadata:
+            selected_header = metadata[header]
+            break
+    else:
+        # No header found
+        return None
+    
+    # Extract pages if available
+    pages = metadata.get("pages", None)
+    if pages and pages == "Not found in Rulebook":
+        pages = None
+
+    
+    return selected_header, pages
