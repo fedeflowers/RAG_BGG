@@ -1,5 +1,8 @@
 # RAG for board games
 
+## Requirements
+Openai API key is needed, and docker to run the app
+
 ## Overview
 This application is designed to help users interact with board game rulebooks efficiently. By uploading a PDF file of a game's rules, users can ask questions, retrieve saved chats, and reference game details with ease.
 
@@ -16,37 +19,37 @@ This application is designed to help users interact with board game rulebooks ef
 ### Sign Up
 Users need to create an account before accessing the app.
 
-![Sign Up](readme_images\\sign_up.png)
+![Sign Up](readme_images/sign_up.png)
 
 ### Login
 Log in with your credentials to start using the app.
 
-![Login](readme_images\\login.png)
+![Login](readme_images/login.png)
 
 ### Upload PDF
 After logging in, upload a PDF file containing the board game rules.
 
-![Upload PDF](readme_images\\upload_pdf.png)
+![Upload PDF](readme_images/upload_pdf.png)
 
 ### Start Questions
 Begin your interaction with the app by answering initial questions.
 
-![Start Questions](readme_images\\start_questions.png)
+![Start Questions](readme_images/start_questions.png)
 
 ### Reference Feature
 Access detailed references from the ingested game rules.
 
-![Reference](readme_images\\reference.png)
+![Reference](readme_images/reference.png)
 
 ### Saved Chats
 View your saved chats, retrieve them based on file names, or delete them if no longer needed.
 
-![Saved Chats](readme_images\\saved_chats.png)
+![Saved Chats](readme_images/saved_chats.png)
 
 ### No Libraries
 If no games are ingested, the app will notify you accordingly.
 
-![No Libraries](readme_images\\no_libraries.png)
+![No Libraries](readme_images/no_libraries.png)
 
 ## How to Start the Project with Docker
 
