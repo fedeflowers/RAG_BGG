@@ -15,7 +15,9 @@ def chatbot_page():
     from langchain_community.embeddings import OpenAIEmbeddings
     from qdrant_client.http import models
     from pymongo import MongoClient
+    from utils.ingestion_manager import IngestionManager
     # from utils.avatar_manager import AvatarManager
+    from utils.utils_funcs import retrieve_games_list
     from utils.utils_funcs import (
         retrieve_query, 
         connect_Qdrant,
@@ -39,6 +41,7 @@ def chatbot_page():
     USER_ICON = "icons\\user_icon.png"  # Replace with your user icon
     BOT_ICON = "icons\\bot_icon.png"  # Replace with your bot icon 
     COLLECTION_NAME = "automatic_ingestion_v3"
+    OPENAI_API_KEY = "keys\OpenAI.txt"
     EMBEDDING_SIZE = 1536
 
     # Initialize session state keys for models and game options    
@@ -88,18 +91,12 @@ def chatbot_page():
     def retrieve_conversations_for_game(user_id, game_name, chat_messages_collection):
         """Retrieve conversations for a specific game and user."""
         return list(chat_messages_collection.find({"user_id": user_id, "game_name": game_name}).sort("timestamp", 1))
-    
-    def retrieve_games_list(games_collection):
-        """Retrieve all unique game names."""
-        return games_collection.distinct("game_name")
 
     
 
     # Only run this block if not initialized
     if not st.session_state.initialized:
         # Initial setup
-        URL = st.secrets["qdrant_URL"]
-        API_KEY = st.secrets["qdrant_API_KEY"]
         openai.api_key = st.secrets["openai"]
 
         # Display a loading message
@@ -113,7 +110,12 @@ def chatbot_page():
         )
 
         # Connect to Qdrant
-        st.session_state.qdrant_client = connect_Qdrant(URL, API_KEY)
+        ingestion_manager = IngestionManager(path_qdrant_key="",
+                                            path_openai_key= OPENAI_API_KEY,
+                                            path_qdrant_cloud="",
+                                            collection_mongo= st.session_state.mongo_collection_games)
+        st.session_state.ingestion_manager = ingestion_manager
+        st.session_state.qdrant_client = ingestion_manager.qdrant_client
         #parser 
         st.session_state.parser = StrOutputParser()
         # Initialize vector store

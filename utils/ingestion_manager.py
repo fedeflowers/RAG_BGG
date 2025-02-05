@@ -12,7 +12,7 @@ from pymongo import MongoClient, errors
 
 
 class IngestionManager:
-    def __init__(self, path_qdrant_key, path_openai_key, path_qdrant_cloud, collection_mongo ):
+    def __init__(self, path_qdrant_key, path_openai_key, path_qdrant_cloud, collection_mongo, local = True ):
         self.headers_to_split =  [
             ("#", "Header 1"),
             ("##", "Header 2"),
@@ -27,15 +27,19 @@ class IngestionManager:
             strip_headers=False
         )
         self.collection_mongo = collection_mongo
-        self.URL = read_token_from_file(path_qdrant_cloud)
         os.environ["OPENAI_API_KEY"] = read_token_from_file(path_openai_key)
-        self.API_KEY = read_token_from_file(path_qdrant_key)
         # self.collection_qdrant = collection_qdrant
         self.docs_processed = None
-        self.qdrant_client = QdrantClient(
-            url=self.URL,
-            api_key=self.API_KEY,
-        )
+        if local:
+            self.qdrant_connection = self.URL ="http://localhost:6333"
+            self.qdrant_client = QdrantClient(url=self.qdrant_connection)
+        else:
+            self.qdrant_connection = read_token_from_file(path_qdrant_key)
+            self.URL = read_token_from_file(path_qdrant_cloud)
+            self.qdrant_client = QdrantClient(
+                url=self.URL,
+                api_key=self.qdrant_connection,
+            )
         self.converter = PdfConverter(
             artifact_dict=create_model_dict(),
         )
@@ -157,12 +161,13 @@ class IngestionManager:
             embedding_model,
             url = self.URL,
             #prefer_grpc=True,
-            api_key=self.API_KEY,
+            api_key=self.qdrant_connection,
             collection_name=collection_name,
             force_recreate = False
         )
         return vector_store
-    
+
+
     def add_game_name_to_mongo(self, game_name):
         try:
             # Insert the new game name
