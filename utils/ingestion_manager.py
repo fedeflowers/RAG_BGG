@@ -12,7 +12,7 @@ from pymongo import MongoClient, errors
 
 
 class IngestionManager:
-    def __init__(self, path_qdrant_key, path_openai_key, path_qdrant_cloud, collection_mongo, local = True ):
+    def __init__(self, path_qdrant_key, openai_key, path_qdrant_cloud, collection_mongo, local = True ):
         self.headers_to_split =  [
             ("#", "Header 1"),
             ("##", "Header 2"),
@@ -27,7 +27,7 @@ class IngestionManager:
             strip_headers=False
         )
         self.collection_mongo = collection_mongo
-        os.environ["OPENAI_API_KEY"] = read_token_from_file(path_openai_key)
+        os.environ["OPENAI_API_KEY"] = openai_key
         # self.collection_qdrant = collection_qdrant
         self.docs_processed = None
         if local:

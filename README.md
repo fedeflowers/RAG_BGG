@@ -36,6 +36,12 @@ Begin your interaction with the app by answering initial questions.
 
 ![Start Questions](readme_images/start_questions.png)
 
+### Adjust Yuor Bot
+Switch your openai bot and temperature
+
+![Openai Bot](readme_images/openai_settings.png)
+
+
 ### Reference Feature
 Access detailed references from the ingested game rules.
 

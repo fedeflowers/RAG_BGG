@@ -1,12 +1,9 @@
 def chatbot_page():
     import streamlit as st
-    from ingestion_module import ingestion_page
-    import openai
     from langchain.chat_models import ChatOpenAI
     import pandas as pd
-    from langchain_huggingface import HuggingFaceEmbeddings
     from langchain_qdrant import QdrantVectorStore
-    from qdrant_client.http.models import CollectionInfo, VectorParams
+    from qdrant_client.http.models import  VectorParams
     # from langchain_ollama.llms import OllamaLLM
     from langchain.prompts import PromptTemplate
     from langchain_core.output_parsers import StrOutputParser
@@ -16,11 +13,11 @@ def chatbot_page():
     from qdrant_client.http import models
     from pymongo import MongoClient
     from utils.ingestion_manager import IngestionManager
+    from openai_api_key_verifier import list_models
     # from utils.avatar_manager import AvatarManager
     from utils.utils_funcs import retrieve_games_list
     from utils.utils_funcs import (
         retrieve_query, 
-        connect_Qdrant,
         get_templated_prompt,
         extract_first_header
     )
@@ -32,8 +29,6 @@ def chatbot_page():
 
 
     # Constants
-    # MAX_TOKENS = 1200
-    TEMPERATURE=0.2
     NUM_DOCS_RETRIEVED = 5
     SIMILARITY_THRESHOLD = 0.9
     DECAY = 0.05
@@ -41,7 +36,6 @@ def chatbot_page():
     USER_ICON = "icons\\user_icon.png"  # Replace with your user icon
     BOT_ICON = "icons\\bot_icon.png"  # Replace with your bot icon 
     COLLECTION_NAME = "automatic_ingestion_v3"
-    OPENAI_API_KEY = "keys\OpenAI.txt"
     EMBEDDING_SIZE = 1536
 
     # Initialize session state keys for models and game options    
@@ -97,21 +91,24 @@ def chatbot_page():
     # Only run this block if not initialized
     if not st.session_state.initialized:
         # Initial setup
-        openai.api_key = st.secrets["openai"]
+        # openai.api_key = st.secrets["openai"]
 
         # Display a loading message
         placeholder = st.empty()
         placeholder.write("Initializing app... Please wait")
-        
+
+        #st.session_state.models_available = list_models(st.session_state.openai_key)
+        st.session_state.models_available = ["gpt-3.5-turbo","gpt-3.5-turbo-instruct", "gpt-4o-mini", "gpt-4o", "gpt-4"]
+
         # Initialize embedding model
         st.session_state.embedding_model = OpenAIEmbeddings(
-            openai_api_key=openai.api_key,
+            openai_api_key=st.session_state.openai_key,
             model="text-embedding-ada-002",  # Specify the desired OpenAI embedding model
         )
 
         # Connect to Qdrant
         ingestion_manager = IngestionManager(path_qdrant_key="",
-                                            path_openai_key= OPENAI_API_KEY,
+                                            openai_key= st.session_state.openai_key,
                                             path_qdrant_cloud="",
                                             collection_mongo= st.session_state.mongo_collection_games)
         st.session_state.ingestion_manager = ingestion_manager
@@ -140,8 +137,7 @@ def chatbot_page():
                 embedding=st.session_state.embedding_model,
             )
 
-        # Initialize the LLM
-        st.session_state.llm = ChatOpenAI(openai_api_key=openai.api_key,model=st.session_state['openai_model'], temperature=TEMPERATURE)
+        
 
         # Set initialization flag to True
         st.session_state.initialized = True
@@ -151,7 +147,28 @@ def chatbot_page():
         #no games found
         if len(game_options) != 0:
             st.session_state.selected_game = game_options[0]
-                        
+                
+    #LLM SETTINGS
+    with st.sidebar.expander("🔧 OpenAI Settings", expanded=True):
+        if "temperature" not in st.session_state:
+            st.session_state.temperature = 0.6
+        temperature = st.slider("Temperature", 0.0, 1.0,st.session_state.temperature,  0.05)
+        if "current_model" not in st.session_state:
+            st.session_state.current_model = "gpt-4o-mini"  # default selection
+        default_index = st.session_state.models_available.index(st.session_state.current_model)
+        # Display the select box with the current model as default
+        selected_model = st.selectbox("Select a Model", st.session_state.models_available, index=default_index)
+
+    if "llm" not in st.session_state or (
+        st.session_state.temperature != temperature or
+        st.session_state.current_model != selected_model
+    ):
+        st.session_state.temperature = temperature
+        st.session_state.current_model = selected_model
+        # Initialize the LLM
+        st.session_state.llm = ChatOpenAI(openai_api_key=st.session_state.openai_key,model=selected_model, temperature=temperature)
+        print("LLM instance updated successfully, model: ", selected_model, ", temperature: ", temperature, ".")
+
 
     # SIDEBAR PREVIOUS CONVERSATIONS
     game_options = retrieve_games_list(st.session_state.mongo_collection_games)
@@ -171,7 +188,7 @@ def chatbot_page():
         if selected_game != st.session_state.selected_game:
             st.session_state.selected_game = selected_game
             st.rerun()
-
+    
         
     
 

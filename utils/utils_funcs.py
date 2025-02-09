@@ -288,3 +288,4 @@ def extract_first_header(metadata):
 def retrieve_games_list(games_collection):
         """Retrieve all unique game names."""
         return games_collection.distinct("game_name")
+

@@ -5,6 +5,7 @@ keys/
 .venv/
 ignore/
 env/
+__pycache__/
 
 # Ignore specific files
 prototype_HF.ipynb

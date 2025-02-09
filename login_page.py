@@ -4,6 +4,8 @@ from streamlit_cookies_manager import EncryptedCookieManager
 from utils.utils_funcs import read_token_from_file
 import bcrypt
 from utils.cookie_manager import CookieManager
+from openai_api_key_verifier import verify_api_key
+
 
 
 class UserAuthApp:
@@ -27,17 +29,18 @@ class UserAuthApp:
     def verify_password(self, password, hashed):
         return bcrypt.checkpw(password.encode('utf-8'), hashed)
 
-    def add_user(self, username, password):
+    def add_user(self, username, password, openai_key):
         if self.users_collection.find_one({"username": username}):
             return False, "User already exists."
         hashed = self.hash_password(password)
-        self.users_collection.insert_one({"username": username, "password": hashed})
+        self.users_collection.insert_one({"username": username, "password": hashed, "openai_key": openai_key})
         return True, "User created successfully."
 
     def authenticate_user(self, username, password):
         user = self.users_collection.find_one({"username": username})
         if user and self.verify_password(password, user["password"]):
             CookieManager().set_cookie("username", username)
+            st.session_state.openai_key = user["openai_key"]
             return True, user
         return False, None
 
@@ -63,12 +66,24 @@ class UserAuthApp:
         username = st.text_input("Username")
         password = st.text_input("Password", type="password")
         confirm_password = st.text_input("Confirm Password", type="password")
+        openai_key = st.text_input("OpenAI API Key", type="password")
 
         if st.button("Sign Up"):
+            psw_check = True
+            user_check = True
+            api_check = verify_api_key(openai_key)
+            if not api_check:
+                st.error("Invalid OpenAI API Key.")
             if password != confirm_password:
                 st.error("Passwords do not match.")
-            else:
-                success, message = self.add_user(username, password)
+                psw_check = False
+            if self.users_collection.find_one({"username": username}):
+                st.error("Username already exists.")
+                user_check = False
+
+            # Verify if the API key is valid
+            if psw_check and user_check and api_check:
+                success, message = self.add_user(username, password, openai_key)
                 if success:
                     st.success(message)
                     st.session_state.page = 'login'
