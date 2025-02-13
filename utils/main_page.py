@@ -10,7 +10,6 @@ def chatbot_page():
     import asyncio
     # from langchain.embeddings import OpenAIEmbeddings
     from langchain_community.embeddings import OpenAIEmbeddings
-    from qdrant_client.http import models
     from pymongo import MongoClient
     from utils.ingestion_manager import IngestionManager
     from openai_api_key_verifier import list_models
@@ -25,7 +24,7 @@ def chatbot_page():
     import re
     from io import BytesIO
     from PIL import Image
-    from login_page import UserAuthApp
+    from utils.login_page import UserAuthApp
 
 
     # Constants

@@ -1,11 +1,9 @@
 if __name__ == '__main__':
     import streamlit as st
-    from login_page import *
+    from utils.login_page import *
     from css import css
-    from main_page import chatbot_page
+    from utils.main_page import chatbot_page
     from streamlit_cookies_manager import EncryptedCookieManager
-    from utils.utils_funcs import read_token_from_file
-    from utils.cookie_manager import CookieManager
     from ingestion_module import ingestion_page
 
     # Main Flow

@@ -2,7 +2,7 @@ import streamlit as st
 from pymongo import MongoClient
 from streamlit_cookies_manager import EncryptedCookieManager
 from utils.utils_funcs import read_token_from_file
-import bcrypt
+# import bcrypt
 from utils.cookie_manager import CookieManager
 from openai_api_key_verifier import verify_api_key
 
@@ -23,22 +23,22 @@ class UserAuthApp:
         if 'page' not in st.session_state:
             st.session_state.page = 'login'
 
-    def hash_password(self, password):
-        return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+    # def hash_password(self, password):
+    #     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
 
-    def verify_password(self, password, hashed):
-        return bcrypt.checkpw(password.encode('utf-8'), hashed)
+    # def verify_password(self, password, hashed):
+    #     return bcrypt.checkpw(password.encode('utf-8'), hashed)
 
     def add_user(self, username, password, openai_key):
         if self.users_collection.find_one({"username": username}):
             return False, "User already exists."
-        hashed = self.hash_password(password)
-        self.users_collection.insert_one({"username": username, "password": hashed, "openai_key": openai_key})
+        # hashed = self.hash_password(password)
+        self.users_collection.insert_one({"username": username, "password": password, "openai_key": openai_key})
         return True, "User created successfully."
 
     def authenticate_user(self, username, password):
         user = self.users_collection.find_one({"username": username})
-        if user and self.verify_password(password, user["password"]):
+        if user and password == user["password"]:
             CookieManager().set_cookie("username", username)
             st.session_state.openai_key = user["openai_key"]
             return True, user
