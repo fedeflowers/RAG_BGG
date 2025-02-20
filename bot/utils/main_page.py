@@ -51,7 +51,7 @@ def chatbot_page():
     #     st.session_state.selected_game = ""
 
     if "mongo_client" not in st.session_state:
-        client = MongoClient("mongodb://mongodb:27017")
+        client = MongoClient("mongodb://localhost:27017/")
         st.session_state.mongo_client = client
     if "user_authenticator" not in st.session_state:
         st.session_state.user_authenticator = UserAuthApp()

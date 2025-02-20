@@ -31,7 +31,7 @@ class IngestionManager:
         # self.collection_qdrant = collection_qdrant
         self.docs_processed = None
         if local:
-            self.qdrant_connection = self.URL ="http://qdrant:6333"
+            self.qdrant_connection = self.URL ="http://localhost:6333"
             self.qdrant_client = QdrantClient(url=self.qdrant_connection)
         else:
             self.qdrant_connection = read_token_from_file(path_qdrant_key)
