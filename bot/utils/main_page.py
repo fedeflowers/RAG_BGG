@@ -36,6 +36,8 @@ def chatbot_page():
     BOT_ICON = "icons\\bot_icon.png"  # Replace with your bot icon 
     COLLECTION_NAME = "automatic_ingestion_v3"
     EMBEDDING_SIZE = 1536
+    MONGO_URI = "mongodb://mongodb:27017"
+    
 
     # Initialize session state keys for models and game options    
     if "initialized" not in st.session_state:
@@ -51,7 +53,7 @@ def chatbot_page():
     #     st.session_state.selected_game = ""
 
     if "mongo_client" not in st.session_state:
-        client = MongoClient("mongodb://localhost:27017/")
+        client = MongoClient(MONGO_URI)
         st.session_state.mongo_client = client
     if "user_authenticator" not in st.session_state:
         st.session_state.user_authenticator = UserAuthApp()

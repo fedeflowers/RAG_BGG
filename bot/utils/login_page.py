@@ -11,7 +11,7 @@ from openai_api_key_verifier import verify_api_key
 class UserAuthApp:
     def __init__(self):
         # MongoDB setup
-        self.client = MongoClient("mongodb://localhost:27017/")
+        self.client = MongoClient("mongodb://mongodb:27017")
         self.db = self.client["user_database"]
         self.users_collection = self.db["users"]
 
