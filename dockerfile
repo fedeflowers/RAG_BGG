@@ -3,8 +3,16 @@ FROM python:3.11-slim
 
 # Install dependencies
 RUN apt-get update && apt-get install -y \
+    software-properties-common \
+    wget \
+    gnupg \
+    && apt-get update && apt-get install -y \
     libgl1-mesa-glx \
     libglib2.0-0 \
+    libxrender1 \
+    libxext6 \
+    libsm6 \
+    mesa-utils \
     && rm -rf /var/lib/apt/lists/*
 
 # Set the working directory to /bot

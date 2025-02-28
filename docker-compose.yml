@@ -9,6 +9,12 @@ services:
     environment:
       - MONGO_URI=mongodb://mongodb:27017
       - QDRANT_HOST=http://qdrant:6333
+    networks:
+      - rag_bgg_rag_network
+    deploy:
+      resources:
+        limits:
+          memory: 12G  # Set memory limit for the streamlit service
 
   mongodb:
     image: mongo:latest
@@ -18,6 +24,13 @@ services:
       - "27017:27017"
     volumes:
       - mongo_data:/data/db
+      - ./init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro  # Mount the initialization script as read-only
+    networks:
+      - rag_bgg_rag_network
+    deploy:
+      resources:
+        limits:
+          memory: 1G  # Set memory limit for the mongodb service
 
   qdrant:
     image: qdrant/qdrant:latest
@@ -27,6 +40,16 @@ services:
       - "6333:6333"
     volumes:
       - qdrant_data:/qdrant/storage
+    networks:
+      - rag_bgg_rag_network
+    deploy:
+      resources:
+        limits:
+          memory: 2G  # Set memory limit for the qdrant service
+
+networks:
+  rag_bgg_rag_network:
+    external: true
 
 volumes:
   mongo_data:
