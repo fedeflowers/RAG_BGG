@@ -33,11 +33,14 @@ def chatbot_page():
     SIMILARITY_THRESHOLD = float(os.getenv("SIMILARITY_THRESHOLD", 0.9))
     DECAY = float(os.getenv("DECAY", 0.05))
     MIN_DOCUMENTS = int(os.getenv("MIN_DOCUMENTS", 5))
-    USER_ICON = os.getenv("USER_ICON", "bot\\icons\\user_icon.png")
-    BOT_ICON = os.getenv("BOT_ICON", "bot\\icons\\bot_icon.png")
+    # USER_ICON = os.getenv("USER_ICON", "bot/icons/user_icon.png")
+    # BOT_ICON = os.getenv("BOT_ICON", "bot/icons/bot_icon.png")
     COLLECTION_NAME = os.getenv("COLLECTION_NAME", "automatic_ingestion_v3")
     EMBEDDING_SIZE = int(os.getenv("EMBEDDING_SIZE", 1536))
     MONGO_URI = os.getenv("MONGO_URI", "mongodb://mongodb:27017")
+    QDRANT_HOST = os.getenv("QDRANT_HOST", "http://qdrant:6333")
+    EMBEDDING_SIZE = 1536
+    # MONGO_URI = "mongodb://mongodb:27017"
     
 
     # Initialize session state keys for models and game options    
@@ -232,15 +235,15 @@ def chatbot_page():
 
             for message in conversations:
                 if message["role"] == "assistant":
-                    with st.chat_message(message["role"], avatar=BOT_ICON):
+                    with st.chat_message(message["role"]):
                         st.markdown(message["content"])
                 else:
-                    with st.chat_message(message["role"], avatar=USER_ICON):
+                    with st.chat_message(message["role"]):
                         st.markdown(message["content"])
 
             # print(history)
         else:
-            with st.chat_message("assistant", avatar=BOT_ICON):
+            with st.chat_message("assistant"):
                 st.markdown("I am Boardy, your personal board game geek, Ask anything about this game, I am happy to answer any questions")
     else:
         st.write("Select a game from the sidebar to view conversations.")
@@ -260,11 +263,13 @@ def chatbot_page():
     st.sidebar.button("Ingest PDF", on_click=go_to_ingestion)
     st.sidebar.button("Logout", on_click=st.session_state.user_authenticator.logout)
 
+    
 
 
 
-    def stream_response(prompt, context, name, llm, parser, template, input_variables, history, avatar, reference):
-        with st.chat_message("assistant", avatar=avatar):
+
+    def stream_response(prompt, context, name, llm, parser, template, input_variables, history, reference):
+        with st.chat_message("assistant"):
             message_placeholder = st.empty()
             full_response = ""
 
@@ -327,54 +332,56 @@ def chatbot_page():
 
 
 
-    prompt = st.chat_input(" ", max_chars=1000)
-    
-    if prompt:
-        with st.chat_message("user", avatar=USER_ICON):
-            st.markdown(prompt)
-            # Add user message to chat history
-            # Save user message to MongoDB
-        save_message_to_mongo("user", prompt, st.session_state.selected_game, st.session_state.user, st.session_state.mongo_collection_chats)
-        # Dynamically set metadata filter based on selected game
-        metadata_filter = {'key': 'metadata.game_name', 'value': st.session_state.selected_game}
-        context = []
-        metadata = []
-        while SIMILARITY_THRESHOLD > DECAY and len(context) < MIN_DOCUMENTS:
-            try:
-                metadata, context = retrieve_query(
-                                        prompt,
-                                        NUM_DOCS_RETRIEVED,
-                                        st.session_state.embedding_model,
-                                        st.session_state.qdrant_client, 
-                                        st.session_state.vector_store,
-                                        metadata_filter = metadata_filter,
-                                        similarity_threshold=SIMILARITY_THRESHOLD
-                                        )
-                SIMILARITY_THRESHOLD -= DECAY
-                print("setting similarity threshold to", SIMILARITY_THRESHOLD)
-                if len(context) >= MIN_DOCUMENTS:
-                    break
-            except Exception as e:
-                print(f"Error: {e}")
-                SIMILARITY_THRESHOLD -= DECAY
-                print("setting similarity threshold to", SIMILARITY_THRESHOLD)
-        # description = get_game_details(game_id)
-        name = st.session_state.selected_game
-        #get references from metadata
-        reference = []
-        if metadata:
-            for doc in metadata:
-                reference.append(extract_first_header(doc))
-        # print("reference", reference)
-        # print("metadata", metadata)
+    # Display chat input only if a game is selected
+    if "selected_game" in st.session_state:
+        prompt = st.chat_input(" ", max_chars=1000)
+        
+        if prompt:
+            with st.chat_message("user"):
+                st.markdown(prompt)
+                # Add user message to chat history
+                # Save user message to MongoDB
+            save_message_to_mongo("user", prompt, st.session_state.selected_game, st.session_state.user, st.session_state.mongo_collection_chats)
+            # Dynamically set metadata filter based on selected game
+            metadata_filter = {'key': 'metadata.game_name', 'value': st.session_state.selected_game}
+            context = []
+            metadata = []
+            while SIMILARITY_THRESHOLD > DECAY and len(context) < MIN_DOCUMENTS:
+                try:
+                    metadata, context = retrieve_query(
+                                            prompt,
+                                            NUM_DOCS_RETRIEVED,
+                                            st.session_state.embedding_model,
+                                            st.session_state.qdrant_client, 
+                                            st.session_state.vector_store,
+                                            metadata_filter = metadata_filter,
+                                            similarity_threshold=SIMILARITY_THRESHOLD
+                                            )
+                    SIMILARITY_THRESHOLD -= DECAY
+                    print("setting similarity threshold to", SIMILARITY_THRESHOLD)
+                    if len(context) >= MIN_DOCUMENTS:
+                        break
+                except Exception as e:
+                    print(f"Error: {e}")
+                    SIMILARITY_THRESHOLD -= DECAY
+                    print("setting similarity threshold to", SIMILARITY_THRESHOLD)
+            # description = get_game_details(game_id)
+            name = st.session_state.selected_game
+            #get references from metadata
+            reference = []
+            if metadata:
+                for doc in metadata:
+                    reference.append(extract_first_header(doc))
+            # print("reference", reference)
+            # print("metadata", metadata)
 
-        input_variables = ["context", "question", "name", "history", "reference"]
-        try:
-            template_string = get_templated_prompt()
-            # print(context)
-            stream_response(prompt, context, name, st.session_state.llm, st.session_state.parser, template_string, input_variables, history,  BOT_ICON, reference)
-        except Exception as e:
-            st.error(f"An error occurred: {str(e)}")
+            input_variables = ["context", "question", "name", "history", "reference"]
+            try:
+                template_string = get_templated_prompt()
+                # print(context)
+                stream_response(prompt, context, name, st.session_state.llm, st.session_state.parser, template_string, input_variables, history, reference)
+            except Exception as e:
+                st.error(f"An error occurred: {str(e)}")
 
 
 
