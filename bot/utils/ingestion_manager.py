@@ -28,7 +28,7 @@ class IngestionManager:
         )
         self.collection_mongo = collection_mongo
         os.environ["OPENAI_API_KEY"] = openai_key
-        QDRANT_HOST = "http://qdrant:6333"
+        QDRANT_HOST = os.getenv("QDRANT_HOST", "http://qdrant:6333")
         # self.collection_qdrant = collection_qdrant
         self.docs_processed = None
         if local:

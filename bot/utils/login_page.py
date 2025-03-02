@@ -5,13 +5,15 @@ from utils.utils_funcs import read_token_from_file
 # import bcrypt
 from utils.cookie_manager import CookieManager
 from openai_api_key_verifier import verify_api_key
+import os
 
 
 
 class UserAuthApp:
     def __init__(self):
         # MongoDB setup
-        self.client = MongoClient("mongodb://mongodb:27017")
+        MONGO_URI = os.getenv("MONGO_URI", "mongodb://mongodb:27017")
+        self.client = MongoClient(MONGO_URI)
         self.db = self.client["user_database"]
         self.users_collection = self.db["users"]
 

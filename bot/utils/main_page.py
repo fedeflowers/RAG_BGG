@@ -25,18 +25,19 @@ def chatbot_page():
     from io import BytesIO
     from PIL import Image
     from utils.login_page import UserAuthApp
+    import os
 
 
     # Constants
-    NUM_DOCS_RETRIEVED = 5
-    SIMILARITY_THRESHOLD = 0.9
-    DECAY = 0.05
-    MIN_DOCUMENTS = 5
-    USER_ICON = "icons\\user_icon.png"  # Replace with your user icon
-    BOT_ICON = "icons\\bot_icon.png"  # Replace with your bot icon 
-    COLLECTION_NAME = "automatic_ingestion_v3"
-    EMBEDDING_SIZE = 1536
-    MONGO_URI = "mongodb://mongodb:27017"
+    NUM_DOCS_RETRIEVED = int(os.getenv("NUM_DOCS_RETRIEVED", 5))
+    SIMILARITY_THRESHOLD = float(os.getenv("SIMILARITY_THRESHOLD", 0.9))
+    DECAY = float(os.getenv("DECAY", 0.05))
+    MIN_DOCUMENTS = int(os.getenv("MIN_DOCUMENTS", 5))
+    USER_ICON = os.getenv("USER_ICON", "bot\\icons\\user_icon.png")
+    BOT_ICON = os.getenv("BOT_ICON", "bot\\icons\\bot_icon.png")
+    COLLECTION_NAME = os.getenv("COLLECTION_NAME", "automatic_ingestion_v3")
+    EMBEDDING_SIZE = int(os.getenv("EMBEDDING_SIZE", 1536))
+    MONGO_URI = os.getenv("MONGO_URI", "mongodb://mongodb:27017")
     
 
     # Initialize session state keys for models and game options    
