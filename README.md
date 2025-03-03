@@ -1,7 +1,7 @@
 # RAG for board games
 
 ## Requirements
-Openai API key is needed, and docker to run the app
+Openai API key is needed, docker facilitates to run the app, otherwise install mongoDB and Qdrant locally and change settings to get access to these two locally
 
 ## Overview
 This application is designed to help users interact with board game rulebooks efficiently. By uploading a PDF file of a game's rules, users can ask questions, retrieve saved chats, and reference game details with ease.
