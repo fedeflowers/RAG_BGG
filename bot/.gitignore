@@ -3,6 +3,7 @@
 detectron2/
 keys/
 .venv/
+test_env/
 ignore/
 env/
 __pycache__/
