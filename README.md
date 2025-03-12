@@ -4,7 +4,17 @@
 Openai API key is needed, docker facilitates to run the app, otherwise install mongoDB and Qdrant locally and change settings to get access to these two locally
 
 ## Overview
-This application is designed to help users interact with board game rulebooks efficiently. By uploading a PDF file of a game's rules, users can ask questions, retrieve saved chats, and reference game details with ease.
+Search board game rules effortlessly with AI-powered Q&A.
+Interact with uploaded PDFs to get instant rule clarifications.
+View and retrieve past chats for easy reference.
+Authenticated users can securely manage their sessions.
+Load rulebooks seamlessly with PDF ingestion.
+Leverage Docker for a hassle-free setup.
+Efficiently handle game references without manual lookup.
+Track and delete saved chats as needed.
+Tweak settings to run locally with MongoDB and Qdrant.
+Optimized for a smooth, intuitive user experience.
+Have fun exploring board game rules like never before
 
 ## Features
 - **User Authentication:** Secure sign-up and login process to manage user accounts.
