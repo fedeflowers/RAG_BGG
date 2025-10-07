@@ -1,6 +1,8 @@
-from marker.converters.pdf import PdfConverter
-from marker.models import create_model_dict
-from marker.output import text_from_rendered
+# Sostituito Marker con OpenAI extractor (molto più leggero)
+# from marker.converters.pdf import PdfConverter
+# from marker.models import create_model_dict
+# from marker.output import text_from_rendered
+from utils.openai_extractor import OpenAILightExtractor
 from langchain.text_splitter import MarkdownHeaderTextSplitter
 import fitz  # PyMuPDF
 from utils.utils_funcs import read_token_from_file
@@ -41,9 +43,71 @@ class IngestionManager:
                 url=self.URL,
                 api_key=self.qdrant_connection,
             )
-        self.converter = PdfConverter(
-            artifact_dict=create_model_dict(),
-        )
+        # OpenAI extractor invece di Marker (zero modelli locali)
+        self.converter = OpenAILightExtractor(api_key=openai_key)
+
+    def create_page_mapping(self, text):
+        """Crea una mappa delle posizioni dei riferimenti pagina nel testo"""
+        import re
+        
+        page_mapping = []
+        lines = text.split('\n')
+        
+        current_page = 1
+        for i, line in enumerate(lines):
+            # Trova i marcatori di pagina
+            page_match = re.search(r'--- Page (\d+) ---', line)
+            if page_match:
+                current_page = int(page_match.group(1))
+            
+            # Associa ogni riga al numero di pagina corrente
+            page_mapping.append({
+                'line_index': i,
+                'line_content': line,
+                'page_number': current_page
+            })
+        
+        return page_mapping
+    
+    def find_page_for_chunk(self, chunk_content, page_mapping):
+        """Trova la pagina di appartenenza di un chunk basandosi sulla mappa"""
+        # Prendi le prime righe del chunk per identificare la pagina
+        chunk_lines = chunk_content.split('\n')[:3]  # Prime 3 righe dovrebbero bastare
+        
+        # Cerca queste righe nella mappa
+        for chunk_line in chunk_lines:
+            if chunk_line.strip():  # Ignora righe vuote
+                for mapping in page_mapping:
+                    if mapping['line_content'].strip() == chunk_line.strip():
+                        return f"Page {mapping['page_number']}"
+        
+        # Fallback: cerca qualsiasi riferimento pagina diretto nel chunk
+        import re
+        page_match = re.search(r'--- Page (\d+) ---', chunk_content)
+        if page_match:
+            return f"Page {page_match.group(1)}"
+        
+        return "Not found in Rulebook"
+
+    def extract_page_references_from_markdown(self, markdown_text):
+        """Estrae i riferimenti alle pagine dal markdown chunk"""
+        import re
+        
+        # Cerca pattern "--- Page X ---" nel markdown
+        page_matches = re.findall(r'--- Page (\d+) ---', markdown_text)
+        
+        if page_matches:
+            # Converte in numeri e trova range
+            page_numbers = [int(p) for p in page_matches]
+            min_page = min(page_numbers)
+            max_page = max(page_numbers)
+            
+            if min_page == max_page:
+                return str(min_page)
+            else:
+                return f"{min_page} - {max_page}"
+        else:
+            return "Not found in Rulebook"
 
     def find_headers_in_pdf(self, pdf_path, headers):
         """
@@ -103,32 +167,19 @@ class IngestionManager:
             raise Exception("Game name already exists in the database")
 
 
-        # Convert the temporary PDF file into text
-        rendered = self.converter(temp_pdf_path)
-        text, _, _ = text_from_rendered(rendered)
+        # Converti PDF in markdown usando OpenAI API (molto più leggero di Marker)
+        text = self.converter.extract_from_pdf(temp_pdf_path)
+        
+        # Prima di dividere in chunks, crea una mappa dei riferimenti pagina
+        page_mapping = self.create_page_mapping(text)
+        
         chunks = self.text_splitter.split_text(text)
 
-        # Add metadata for pages
-        result = []
-        for chunk in chunks:
-            result.append(self.find_headers_in_pdf(temp_pdf_path, chunk.metadata))
-
+        # Associa ogni chunk alle pagine corrette usando la mappa
         pages = []  # Pages for each chunk
-        for el in result:
-            values = list(el.values())  # Convert values to a list
-
-            # Check if values has content
-            if values:
-                # Ensure the first element is not empty
-                if values[0]:
-                    if len(values) >= 2 and values[0] != values[-1] and values[-1]:
-                        pages.append(f"{values[0][0]} - {values[-1][0]}")
-                    else:
-                        pages.append(f"{values[0][0]}")
-                else:
-                    pages.append("Not found in Rulebook")
-            else:
-                pages.append("Not found in Rulebook")
+        for chunk in chunks:
+            page_ref = self.find_page_for_chunk(chunk.page_content, page_mapping)
+            pages.append(page_ref)
 
         # Extract game metadata from the file name
         
